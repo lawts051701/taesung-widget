@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:gravity="center_vertical">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="태성 ERP 오늘 일정 위젯 로그인"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="16dp" />
+
+    <EditText
+        android:id="@+id/cfg_id"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="아이디"
+        android:inputType="text"
+        android:autofillHints="username" />
+
+    <EditText
+        android:id="@+id/cfg_pw"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="비밀번호"
+        android:inputType="textPassword"
+        android:autofillHints="password"
+        android:layout_marginTop="8dp" />
+
+    <Button
+        android:id="@+id/cfg_login"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="로그인"
+        android:layout_marginTop="16dp" />
+
+    <TextView
+        android:id="@+id/cfg_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="#6B7280"
+        android:textSize="13sp"
+        android:layout_marginTop="12dp" />
+</LinearLayout>
