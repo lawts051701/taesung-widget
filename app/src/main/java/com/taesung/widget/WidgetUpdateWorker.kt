@@ -11,16 +11,7 @@ import androidx.work.WorkerParameters
 class WidgetUpdateWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
     override fun doWork(): Result {
         val ctx = applicationContext
-        val text: String = try {
-            val lines = Net.fetchTodayLines(ctx)
-            when {
-                lines == null -> "로그인이 필요합니다. 위젯을 눌러 로그인하세요."
-                lines.isEmpty() -> "오늘 일정이 없습니다."
-                else -> lines.joinToString("\n")
-            }
-        } catch (e: Exception) {
-            "네트워크 오류 — 새로고침을 눌러 주세요."
-        }
+        val text: String = Net.todayWidgetText(ctx)
         TodayScheduleWidget.cache(ctx, text)
         TodayScheduleWidget.renderAll(ctx)
         return Result.success()

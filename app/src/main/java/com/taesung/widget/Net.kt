@@ -56,8 +56,8 @@ object Net {
         val body = JSONObject().put("username", username).put("password", password)
             .toString().toRequestBody("application/json".toMediaType())
         val req = Request.Builder().url("$BASE_URL/api/auth/login").post(body).build()
-        client(ctx).newCall(req).execute().use { resp ->
-            if (!resp.isSuccessful) return false
+        val ok = client(ctx).newCall(req).execute().use { resp ->
+            if (!resp.isSuccessful) return@use false
             // 로그인 응답이 사용자 객체(employee_id 포함)면 저장
             try {
                 val u = JSONObject(resp.body!!.string())
@@ -65,8 +65,52 @@ object Net {
                     prefs(ctx).edit().putInt(KEY_EMP, u.getInt("employee_id")).apply()
                 }
             } catch (_: Exception) { /* 응답 형식이 달라도 쿠키는 저장됨 */ }
-            return true
+            true
         }
+        // 로그인 응답에 employee_id가 없었으면 /me로 한 번 더 보강
+        if (ok && prefs(ctx).getInt(KEY_EMP, -1) < 0) refreshEmployeeId(ctx)
+        return ok
+    }
+
+    /** /api/auth/me 로 employee_id 보강. 반환: >=0 직원id(저장됨), -1 직원연결없음, -2 인증실패. */
+    private fun refreshEmployeeId(ctx: Context): Int {
+        return try {
+            val req = Request.Builder().url("$BASE_URL/api/auth/me").get().build()
+            client(ctx).newCall(req).execute().use { resp ->
+                when {
+                    resp.code == 401 -> -2
+                    !resp.isSuccessful -> -1
+                    else -> {
+                        val u = JSONObject(resp.body!!.string())
+                        if (u.isNull("employee_id")) -1
+                        else {
+                            val id = u.getInt("employee_id")
+                            prefs(ctx).edit().putInt(KEY_EMP, id).apply()
+                            id
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) { -1 }
+    }
+
+    /** 위젯에 표시할 오늘 일정 텍스트 — 상태별 안내 메시지까지 한 번에 처리. */
+    fun todayWidgetText(ctx: Context): String {
+        if (!isLoggedIn(ctx)) return "로그인이 필요합니다. 위젯을 눌러 로그인하세요."
+        var empId = prefs(ctx).getInt(KEY_EMP, -1)
+        if (empId < 0) {
+            empId = refreshEmployeeId(ctx)
+            if (empId == -2) return "세션이 만료됐어요. 위젯을 눌러 다시 로그인하세요."
+            if (empId < 0) return "이 계정은 직원과 연결돼 있지 않아 개인 일정을 표시할 수 없어요.\n관리자에게 ‘팀원’ 연결을 요청하세요."
+        }
+        return try {
+            val lines = fetchTodayLines(ctx)
+            when {
+                lines == null -> "세션이 만료됐어요. 위젯을 눌러 다시 로그인하세요."
+                lines.isEmpty() -> "오늘 일정이 없습니다."
+                else -> lines.joinToString("\n")
+            }
+        } catch (e: Exception) { "네트워크 오류 — 새로고침을 눌러 주세요." }
     }
 
     /** FCM 기기 토큰을 서버에 등록(로그인 세션 쿠키 사용). 성공 여부 반환. */
