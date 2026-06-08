@@ -121,8 +121,8 @@ object Net {
             val arr = JSONArray(resp.body!!.string())
             val parseUtc = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
                 .apply { timeZone = TimeZone.getTimeZone("UTC") }
-            val timeFmt = SimpleDateFormat("HH:mm", Locale.US).apply { timeZone = kst }
-            val map = HashMap<Int, MutableList<Pair<Long, String>>>()
+            // day -> (정렬키 시각, 담당자색키, 제목)
+            val map = HashMap<Int, MutableList<Triple<Long, Int, String>>>()
             for (i in 0 until arr.length()) {
                 val ev = arr.getJSONObject(i)
                 val starts = ev.optString("starts_at")
@@ -131,12 +131,14 @@ object Net {
                     val c = Calendar.getInstance(kst).apply { time = d }
                     if (c.get(Calendar.YEAR) != year || c.get(Calendar.MONTH) + 1 != month) continue
                     val day = c.get(Calendar.DAY_OF_MONTH)
+                    val colorKey = ev.optInt("assigned_to_id", -1)
                     val title = ev.optString("title")
-                    map.getOrPut(day) { mutableListOf() }.add(d.time to "${timeFmt.format(d)} $title")
+                    map.getOrPut(day) { mutableListOf() }.add(Triple(d.time, colorKey, title))
                 } catch (_: Exception) { /* 형식 불량 스킵 */ }
             }
-            // 시간순 정렬 후 제목만
-            val byDay = map.mapValues { (_, list) -> list.sortedBy { it.first }.map { it.second } }
+            val byDay = map.mapValues { (_, list) ->
+                list.sortedBy { it.first }.map { EvtChip(it.third, it.second) }
+            }
             return MonthData(year, month, today, byDay)
         }
     }

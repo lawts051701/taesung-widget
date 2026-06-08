@@ -4,60 +4,71 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.RectF
 import java.util.Calendar
 
-/** 월 일정 데이터: 해당 월 + 일(day)별 일정 제목 목록. */
+/** 일정 칩 한 개: 표시 텍스트 + 색상 키(담당자 id 등, -1이면 중립색). */
+data class EvtChip(val text: String, val colorKey: Int)
+
+/** 월 일정 데이터. */
 data class MonthData(
     val year: Int,
-    val month: Int,        // 1~12
-    val today: Int,        // 오늘 일자(이번 달이 아니면 -1)
-    val byDay: Map<Int, List<String>>,
+    val month: Int,
+    val today: Int,                       // 이번 달이 아니면 -1
+    val byDay: Map<Int, List<EvtChip>>,
 )
 
-/** 월 달력을 비트맵으로 그린다(웹 캘린더 형식). */
+/** 월 달력을 비트맵으로 그린다 (다크 테마 + 색상 칩, 캘린더 앱 스타일). */
 object CalendarRenderer {
 
-    private const val W = 600  // 폭(px). RGB_565 사용으로 메모리 절반.
+    private const val W = 720
+    private val BG = 0xFF1C1C1E.toInt()
+
+    // 담당자별 칩 배경색 팔레트(다크 톤)
+    private val CHIP = intArrayOf(
+        0xFF3E4C7A.toInt(), 0xFF2F5D57.toInt(), 0xFF5B3E72.toInt(), 0xFF6E5630.toInt(),
+        0xFF7A3E4E.toInt(), 0xFF35597A.toInt(), 0xFF3E6E47.toInt(), 0xFF6E6330.toInt(),
+        0xFF50506E.toInt(), 0xFF2E6E6E.toInt(),
+    )
 
     fun calendar(data: MonthData): Bitmap {
-        val cal = Calendar.getInstance().apply {
-            clear(); set(data.year, data.month - 1, 1)
-        }
+        val cal = Calendar.getInstance().apply { clear(); set(data.year, data.month - 1, 1) }
         val firstWeekday = cal.get(Calendar.DAY_OF_WEEK) - 1  // 0=일
         val daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
         val rows = Math.ceil((firstWeekday + daysInMonth) / 7.0).toInt().coerceAtLeast(5)
 
-        val headerH = 74
-        val weekHdrH = 40
-        val cellH = 118
-        val H = headerH + weekHdrH + rows * cellH + 8
+        val headerH = 64
+        val weekHdrH = 42
+        val cellH = 158
+        val H = headerH + weekHdrH + rows * cellH + 6
 
         val bmp = Bitmap.createBitmap(W, H, Bitmap.Config.RGB_565)
         val c = Canvas(bmp)
-        c.drawColor(Color.WHITE)
+        c.drawColor(BG)
         val p = Paint(Paint.ANTI_ALIAS_FLAG)
         val cellW = W / 7f
 
-        // 제목
-        p.color = Color.parseColor("#1F2937"); p.textSize = 40f
-        p.textAlign = Paint.Align.LEFT; p.isFakeBoldText = true
-        c.drawText("${data.year}년 ${data.month}월", 18f, 50f, p)
+        // 헤더(월)
+        p.color = Color.WHITE; p.textSize = 38f; p.textAlign = Paint.Align.CENTER; p.isFakeBoldText = true
+        c.drawText("%d.%02d".format(data.year, data.month), W / 2f, 46f, p)
         p.isFakeBoldText = false
 
-        // 요일 헤더
+        // 요일
         val names = arrayOf("일", "월", "화", "수", "목", "금", "토")
-        p.textSize = 24f; p.textAlign = Paint.Align.CENTER
+        p.textSize = 22f
         for (i in 0..6) {
             p.color = when (i) {
-                0 -> Color.parseColor("#DC2626")
-                6 -> Color.parseColor("#2563EB")
-                else -> Color.parseColor("#6B7280")
+                0 -> 0xFFFF6B6B.toInt()
+                6 -> 0xFF6B9BFF.toInt()
+                else -> 0xFF9A9A9E.toInt()
             }
-            c.drawText(names[i], cellW * i + cellW / 2, headerH + 28f, p)
+            c.drawText(names[i], cellW * i + cellW / 2, (headerH + 28).toFloat(), p)
         }
 
-        // 그리드 셀
         val gridTop = (headerH + weekHdrH).toFloat()
+        val line = Paint().apply { color = 0xFF2E2E31.toInt(); strokeWidth = 1f }
+        for (r in 0..rows) c.drawLine(0f, gridTop + r * cellH, W.toFloat(), gridTop + r * cellH, line)
+
         var day = 1
         for (r in 0 until rows) {
             for (col in 0..6) {
@@ -66,48 +77,48 @@ object CalendarRenderer {
                 val x = cellW * col
                 val y = gridTop + r * cellH
 
-                // 오늘 강조
+                // 날짜 숫자 (오늘은 흰 원)
+                p.textAlign = Paint.Align.CENTER; p.textSize = 24f
+                val ncx = x + 22f
+                val ncy = y + 28f
                 if (day == data.today) {
-                    p.color = Color.parseColor("#EEF2FF")
-                    c.drawRect(x + 1.5f, y + 1.5f, x + cellW - 1.5f, y + cellH - 1.5f, p)
-                }
-
-                // 날짜 숫자
-                p.textAlign = Paint.Align.LEFT; p.textSize = 26f
-                p.color = when (col) {
-                    0 -> Color.parseColor("#DC2626")
-                    6 -> Color.parseColor("#2563EB")
-                    else -> Color.parseColor("#374151")
-                }
-                p.isFakeBoldText = (day == data.today)
-                c.drawText(day.toString(), x + 8f, y + 30f, p)
-                p.isFakeBoldText = false
-
-                // 일정 제목들
-                val titles = data.byDay[day]
-                if (!titles.isNullOrEmpty()) {
-                    p.textSize = 18f
-                    val maxLines = ((cellH - 38) / 22).coerceIn(1, 3)
-                    val show = titles.take(maxLines)
-                    show.forEachIndexed { li, t ->
-                        p.color = Color.parseColor("#4B5563")
-                        c.drawText(ellipsize(t, p, cellW - 12), x + 6f, y + 52f + li * 22, p)
+                    p.color = Color.WHITE
+                    c.drawCircle(ncx, ncy - 8f, 19f, p)
+                    p.color = BG
+                    c.drawText(day.toString(), ncx, ncy, p)
+                } else {
+                    p.color = when (col) {
+                        0 -> 0xFFFF6B6B.toInt()
+                        6 -> 0xFF6B9BFF.toInt()
+                        else -> 0xFFE5E5E7.toInt()
                     }
-                    if (titles.size > maxLines) {
-                        p.color = Color.parseColor("#9CA3AF")
-                        c.drawText("+${titles.size - maxLines}", x + 6f, y + 52f + maxLines * 22, p)
+                    c.drawText(day.toString(), ncx, ncy, p)
+                }
+
+                // 일정 칩
+                val chips = data.byDay[day]
+                if (!chips.isNullOrEmpty()) {
+                    val chipH = 26f
+                    val gap = 4f
+                    val top0 = y + 42f
+                    val maxChips = (((cellH - 46) / (chipH + gap)).toInt()).coerceIn(1, 4)
+                    val show = chips.take(maxChips)
+                    p.textAlign = Paint.Align.LEFT; p.textSize = 17f
+                    show.forEachIndexed { ci, chip ->
+                        val cy0 = top0 + ci * (chipH + gap)
+                        p.color = if (chip.colorKey >= 0) CHIP[chip.colorKey % CHIP.size] else 0xFF3A3A3C.toInt()
+                        c.drawRoundRect(RectF(x + 4f, cy0, x + cellW - 4f, cy0 + chipH), 6f, 6f, p)
+                        p.color = 0xFFEDEDED.toInt()
+                        c.drawText(ellipsize(chip.text, p, cellW - 18), x + 10f, cy0 + chipH - 8f, p)
+                    }
+                    if (chips.size > maxChips) {
+                        p.color = 0xFF9A9A9E.toInt(); p.textSize = 16f; p.textAlign = Paint.Align.CENTER
+                        c.drawText("+${chips.size - maxChips}", x + cellW / 2, top0 + maxChips * (chipH + gap) + 12f, p)
                     }
                 }
                 day++
             }
         }
-
-        // 그리드 선
-        val line = Paint().apply { color = Color.parseColor("#E5E7EB"); strokeWidth = 1f }
-        val gridBottom = gridTop + rows * cellH
-        for (col in 0..7) c.drawLine(cellW * col, gridTop, cellW * col, gridBottom, line)
-        for (r in 0..rows) c.drawLine(0f, gridTop + r * cellH, W.toFloat(), gridTop + r * cellH, line)
-
         return bmp
     }
 
@@ -116,9 +127,9 @@ object CalendarRenderer {
         val H = 260
         val bmp = Bitmap.createBitmap(W, H, Bitmap.Config.RGB_565)
         val c = Canvas(bmp)
-        c.drawColor(Color.WHITE)
+        c.drawColor(BG)
         val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.parseColor("#374151"); textSize = 28f; textAlign = Paint.Align.CENTER
+            color = 0xFFE5E5E7.toInt(); textSize = 28f; textAlign = Paint.Align.CENTER
         }
         val lines = msg.split("\n")
         var y = H / 2f - (lines.size - 1) * 20

@@ -2,7 +2,7 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FFFFFF">
+    android:background="#1C1C1E">
 
     <!-- 월 달력 비트맵 -->
     <ImageView
@@ -20,7 +20,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="top|end"
         android:text="↻"
-        android:textColor="#6B7280"
+        android:textColor="#BBBBBB"
         android:textSize="18sp"
-        android:padding="6dp" />
+        android:padding="8dp" />
 </FrameLayout>
