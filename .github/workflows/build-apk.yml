@@ -29,21 +29,27 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
-      - name: Build debug APK
-        run: gradle assembleDebug --no-daemon --stacktrace
+      - name: Generate launcher icons from logo
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq imagemagick
+          OUT=app/src/main/res/mipmap-xxxhdpi
+          mkdir -p "$OUT"
+          # 적응형 아이콘 전경: 로고를 안전영역(약 62%) 안에 비율유지로 배치, 투명 배경
+          convert iconsrc/logo.png -trim +repage -resize 268x268 \
+            -background none -gravity center -extent 432x432 "$OUT/ic_launcher_foreground.png"
+          # 구형 안드로이드(API24~25)용 정사각 아이콘: 흰 배경에 로고 비율유지
+          convert iconsrc/logo.png -trim +repage -resize 340x340 \
+            -background white -gravity center -extent 432x432 "$OUT/ic_launcher.png"
+          cp "$OUT/ic_launcher.png" "$OUT/ic_launcher_round.png"
+          ls -la "$OUT"
 
-      - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk taesung-widget.apk
+      # 서명은 로컬에서 함(키를 클라우드에 올리지 않음) → 여기선 미서명 release 빌드
+      - name: Build unsigned release APK
+        run: gradle assembleRelease --no-daemon --stacktrace
 
-      - name: Publish APK as Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: widget-latest
-          name: 태성 오늘일정 위젯 APK
-          files: taesung-widget.apk
-
-      - name: Upload APK artifact
+      - name: Upload unsigned APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: taesung-widget-apk
-          path: taesung-widget.apk
+          name: app-release-unsigned
+          path: app/build/outputs/apk/release/app-release-unsigned.apk

@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">태성 오늘 일정</string>
+    <string name="app_name">정비사업팀</string>
+    <string name="widget_label">정비사업팀 · 오늘 일정</string>
+    <string name="app_url">https://taesung-urban.duckdns.org</string>
 </resources>
