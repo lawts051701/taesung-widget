@@ -54,15 +54,12 @@ class FcmService : FirebaseMessagingService() {
     private fun showNotification(title: String, body: String, url: String, id: String) {
         ensureChannel(this)
 
-        // 탭 → 앱(TWA)을 '?notif=<id>'로 열어 웹에서 전체 내용 팝업을 띄운다.
-        val target = when {
-            id.isNotEmpty() -> "${Net.BASE_URL}/?notif=$id"
-            url.startsWith("http") -> url
-            else -> "${Net.BASE_URL}$url"
-        }
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(target)).apply {
-            setPackage(packageName)  // 우리 앱에서 열기
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        // 탭 → 앱 전체가 아니라 네이티브 팝업(NotificationPopupActivity)만 띄운다.
+        val intent = Intent(this, NotificationPopupActivity::class.java).apply {
+            putExtra("title", title)
+            putExtra("body", body)
+            putExtra("url", url)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
         val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
