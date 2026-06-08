@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -41,25 +42,33 @@ class FcmService : FirebaseMessagingService() {
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
-        val n = message.notification
-        val title = n?.title ?: message.data["title"] ?: "정비사업팀"
-        val body = n?.body ?: message.data["body"] ?: ""
-        val url = message.data["url"] ?: "/"
-        showNotification(title, body, url)
+        // 데이터 전용 메시지 — 전·후면 모두 여기서 직접 알림 생성(탭 동작 제어용)
+        val d = message.data
+        val title = d["title"] ?: message.notification?.title ?: "정비사업팀"
+        val body = d["body"] ?: message.notification?.body ?: ""
+        val url = d["url"] ?: "/"
+        val id = d["id"] ?: ""
+        showNotification(title, body, url, id)
     }
 
-    private fun showNotification(title: String, body: String, url: String) {
+    private fun showNotification(title: String, body: String, url: String, id: String) {
         ensureChannel(this)
 
-        // 알림 탭 → ERP 앱(TWA 런처) 열기
-        val launch = packageManager.getLaunchIntentForPackage(packageName)?.apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            putExtra("url", url)
+        // 탭 → 앱(TWA)을 '?notif=<id>'로 열어 웹에서 전체 내용 팝업을 띄운다.
+        val target = when {
+            id.isNotEmpty() -> "${Net.BASE_URL}/?notif=$id"
+            url.startsWith("http") -> url
+            else -> "${Net.BASE_URL}$url"
+        }
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(target)).apply {
+            setPackage(packageName)  // 우리 앱에서 열기
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         else PendingIntent.FLAG_UPDATE_CURRENT
-        val pi = PendingIntent.getActivity(this, 0, launch ?: Intent(), flags)
+        val reqCode = if (id.isNotEmpty()) id.hashCode() else System.currentTimeMillis().toInt()
+        val pi = PendingIntent.getActivity(this, reqCode, intent, flags)
 
         val notif = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
