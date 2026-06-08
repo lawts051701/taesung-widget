@@ -69,6 +69,17 @@ object Net {
         }
     }
 
+    /** FCM 기기 토큰을 서버에 등록(로그인 세션 쿠키 사용). 성공 여부 반환. */
+    fun registerFcmToken(ctx: Context, token: String): Boolean {
+        if (!isLoggedIn(ctx)) return false
+        return try {
+            val body = JSONObject().put("token", token)
+                .toString().toRequestBody("application/json".toMediaType())
+            val req = Request.Builder().url("$BASE_URL/api/push/fcm-register").post(body).build()
+            client(ctx).newCall(req).execute().use { resp -> resp.isSuccessful }
+        } catch (e: Exception) { false }
+    }
+
     /** 오늘 내 일정 라인 목록 반환. 인증 실패 시 null(재로그인 필요). */
     fun fetchTodayLines(ctx: Context): List<String>? {
         val empId = prefs(ctx).getInt(KEY_EMP, -1)

@@ -44,6 +44,11 @@ jobs:
           cp "$OUT/ic_launcher.png" "$OUT/ic_launcher_round.png"
           ls -la "$OUT"
 
+      - name: Inject google-services.json (from encrypted secret)
+        env:
+          GS_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
+        run: echo "$GS_B64" | base64 -d > app/google-services.json
+
       # 서명은 로컬에서 함(키를 클라우드에 올리지 않음) → 여기선 미서명 release 빌드
       - name: Build unsigned release APK
         run: gradle assembleRelease --no-daemon --stacktrace

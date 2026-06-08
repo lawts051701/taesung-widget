@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -53,4 +54,7 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     // TWA — ERP 웹을 전체화면 앱으로 (구글 공식 라이브러리)
     implementation("com.google.androidbrowserhelper:androidbrowserhelper:2.5.0")
+    // FCM 네이티브 푸시
+    implementation(platform("com.google.firebase:firebase-bom:33.5.1"))
+    implementation("com.google.firebase:firebase-messaging-ktx")
 }
