@@ -94,6 +94,53 @@ object Net {
         } catch (e: Exception) { -1 }
     }
 
+    /** 이번 달 전체 일정 조회. 인증 실패 시 null. (직원 연결 불필요 — 모든 일정 표시) */
+    fun fetchMonthEvents(ctx: Context): MonthData? {
+        val kst = TimeZone.getTimeZone("Asia/Seoul")
+        val now = Calendar.getInstance(kst)
+        val year = now.get(Calendar.YEAR)
+        val month = now.get(Calendar.MONTH) + 1
+        val today = now.get(Calendar.DAY_OF_MONTH)
+
+        val mc = Calendar.getInstance(kst).apply {
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }
+        val iso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).apply { timeZone = kst }
+        val start = iso.format(mc.time)
+        mc.add(Calendar.MONTH, 1)
+        val end = iso.format(mc.time)
+        val s = java.net.URLEncoder.encode(start, "UTF-8")
+        val e = java.net.URLEncoder.encode(end, "UTF-8")
+
+        val req = Request.Builder().url("$BASE_URL/api/events?start=$s&end=$e").get().build()
+        client(ctx).newCall(req).execute().use { resp ->
+            if (resp.code == 401) return null
+            if (!resp.isSuccessful) throw RuntimeException("HTTP ${resp.code}")
+            val arr = JSONArray(resp.body!!.string())
+            val parseUtc = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+                .apply { timeZone = TimeZone.getTimeZone("UTC") }
+            val timeFmt = SimpleDateFormat("HH:mm", Locale.US).apply { timeZone = kst }
+            val map = HashMap<Int, MutableList<Pair<Long, String>>>()
+            for (i in 0 until arr.length()) {
+                val ev = arr.getJSONObject(i)
+                val starts = ev.optString("starts_at")
+                try {
+                    val d = parseUtc.parse(starts.substring(0, 19)) ?: continue
+                    val c = Calendar.getInstance(kst).apply { time = d }
+                    if (c.get(Calendar.YEAR) != year || c.get(Calendar.MONTH) + 1 != month) continue
+                    val day = c.get(Calendar.DAY_OF_MONTH)
+                    val title = ev.optString("title")
+                    map.getOrPut(day) { mutableListOf() }.add(d.time to "${timeFmt.format(d)} $title")
+                } catch (_: Exception) { /* 형식 불량 스킵 */ }
+            }
+            // 시간순 정렬 후 제목만
+            val byDay = map.mapValues { (_, list) -> list.sortedBy { it.first }.map { it.second } }
+            return MonthData(year, month, today, byDay)
+        }
+    }
+
     /** 위젯에 표시할 오늘 일정 텍스트 — 상태별 안내 메시지까지 한 번에 처리. */
     fun todayWidgetText(ctx: Context): String {
         if (!isLoggedIn(ctx)) return "로그인이 필요합니다. 위젯을 눌러 로그인하세요."
