@@ -42,7 +42,51 @@ object Net {
     }
 
     private fun client(ctx: Context): OkHttpClient =
-        OkHttpClient.Builder().cookieJar(PersistentCookieJar(ctx)).build()
+        OkHttpClient.Builder()
+            .cookieJar(PersistentCookieJar(ctx))
+            .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
+            .build()
+
+    // ───────── 월 일정 캐시(네트워크 실패 시 마지막 정상 데이터 표시용)
+    private const val KEY_MONTH = "month_cache"
+
+    fun cacheMonth(ctx: Context, data: MonthData) {
+        try {
+            val days = JSONObject()
+            data.byDay.forEach { (day, chips) ->
+                val arr = JSONArray()
+                chips.forEach { arr.put(JSONObject().put("x", it.text).put("c", it.color ?: "")) }
+                days.put(day.toString(), arr)
+            }
+            val o = JSONObject().put("y", data.year).put("m", data.month).put("t", data.today).put("d", days)
+            prefs(ctx).edit().putString(KEY_MONTH, o.toString()).apply()
+        } catch (_: Exception) { /* 무시 */ }
+    }
+
+    fun loadCachedMonth(ctx: Context): MonthData? {
+        val s = prefs(ctx).getString(KEY_MONTH, null) ?: return null
+        return try {
+            val o = JSONObject(s)
+            val byDay = HashMap<Int, List<EvtChip>>()
+            val days = o.getJSONObject("d")
+            val keys = days.keys()
+            while (keys.hasNext()) {
+                val k = keys.next()
+                val arr = days.getJSONArray(k)
+                val list = ArrayList<EvtChip>()
+                for (i in 0 until arr.length()) {
+                    val cj = arr.getJSONObject(i)
+                    val col = cj.optString("c", "")
+                    list.add(EvtChip(cj.getString("x"), col.ifEmpty { null }))
+                }
+                byDay[k.toInt()] = list
+            }
+            val todayNow = Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul")).get(Calendar.DAY_OF_MONTH)
+            MonthData(o.getInt("y"), o.getInt("m"), todayNow, byDay)
+        } catch (e: Exception) { null }
+    }
 
     fun isLoggedIn(ctx: Context): Boolean =
         prefs(ctx).getStringSet(KEY_COOKIES, emptySet())!!.isNotEmpty()
@@ -121,8 +165,8 @@ object Net {
             val arr = JSONArray(resp.body!!.string())
             val parseUtc = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
                 .apply { timeZone = TimeZone.getTimeZone("UTC") }
-            // day -> (정렬키 시각, 담당자색키, 제목)
-            val map = HashMap<Int, MutableList<Triple<Long, Int, String>>>()
+            // day -> (정렬키 시각, 색상hex, 제목)
+            val map = HashMap<Int, MutableList<Triple<Long, String, String>>>()
             for (i in 0 until arr.length()) {
                 val ev = arr.getJSONObject(i)
                 val starts = ev.optString("starts_at")
@@ -131,13 +175,13 @@ object Net {
                     val c = Calendar.getInstance(kst).apply { time = d }
                     if (c.get(Calendar.YEAR) != year || c.get(Calendar.MONTH) + 1 != month) continue
                     val day = c.get(Calendar.DAY_OF_MONTH)
-                    val colorKey = ev.optInt("assigned_to_id", -1)
+                    val color = ev.optString("color", "")
                     val title = ev.optString("title")
-                    map.getOrPut(day) { mutableListOf() }.add(Triple(d.time, colorKey, title))
+                    map.getOrPut(day) { mutableListOf() }.add(Triple(d.time, color, title))
                 } catch (_: Exception) { /* 형식 불량 스킵 */ }
             }
             val byDay = map.mapValues { (_, list) ->
-                list.sortedBy { it.first }.map { EvtChip(it.third, it.second) }
+                list.sortedBy { it.first }.map { EvtChip(it.third, it.second.ifEmpty { null }) }
             }
             return MonthData(year, month, today, byDay)
         }

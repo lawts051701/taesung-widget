@@ -7,8 +7,8 @@ import android.graphics.Paint
 import android.graphics.RectF
 import java.util.Calendar
 
-/** 일정 칩 한 개: 표시 텍스트 + 색상 키(담당자 id 등, -1이면 중립색). */
-data class EvtChip(val text: String, val colorKey: Int)
+/** 일정 칩 한 개: 표시 텍스트 + 색상(hex, null이면 중립색). */
+data class EvtChip(val text: String, val color: String?)
 
 /** 월 일정 데이터. */
 data class MonthData(
@@ -21,15 +21,14 @@ data class MonthData(
 /** 월 달력을 비트맵으로 그린다 (다크 테마 + 색상 칩, 캘린더 앱 스타일). */
 object CalendarRenderer {
 
-    private const val W = 720
+    private const val W = 820
     private val BG = 0xFF1C1C1E.toInt()
+    private val DEFAULT_CHIP = 0xFF3A3A3C.toInt()
 
-    // 담당자별 칩 배경색 팔레트(다크 톤)
-    private val CHIP = intArrayOf(
-        0xFF3E4C7A.toInt(), 0xFF2F5D57.toInt(), 0xFF5B3E72.toInt(), 0xFF6E5630.toInt(),
-        0xFF7A3E4E.toInt(), 0xFF35597A.toInt(), 0xFF3E6E47.toInt(), 0xFF6E6330.toInt(),
-        0xFF50506E.toInt(), 0xFF2E6E6E.toInt(),
-    )
+    private fun parseColorOr(hex: String?, def: Int): Int {
+        if (hex.isNullOrBlank()) return def
+        return try { Color.parseColor(hex.trim()) } catch (e: Exception) { def }
+    }
 
     fun calendar(data: MonthData): Bitmap {
         val cal = Calendar.getInstance().apply { clear(); set(data.year, data.month - 1, 1) }
@@ -95,25 +94,25 @@ object CalendarRenderer {
                     c.drawText(day.toString(), ncx, ncy, p)
                 }
 
-                // 일정 칩
+                // 일정 칩 (일정에 지정한 색상 사용)
                 val chips = data.byDay[day]
                 if (!chips.isNullOrEmpty()) {
-                    val chipH = 26f
-                    val gap = 4f
+                    val chipH = 24f
+                    val gap = 3f
                     val top0 = y + 42f
-                    val maxChips = (((cellH - 46) / (chipH + gap)).toInt()).coerceIn(1, 4)
+                    val maxChips = (((cellH - 44) / (chipH + gap)).toInt()).coerceIn(1, 4)
                     val show = chips.take(maxChips)
-                    p.textAlign = Paint.Align.LEFT; p.textSize = 17f
+                    p.textAlign = Paint.Align.LEFT; p.textSize = 15f
                     show.forEachIndexed { ci, chip ->
                         val cy0 = top0 + ci * (chipH + gap)
-                        p.color = if (chip.colorKey >= 0) CHIP[chip.colorKey % CHIP.size] else 0xFF3A3A3C.toInt()
-                        c.drawRoundRect(RectF(x + 4f, cy0, x + cellW - 4f, cy0 + chipH), 6f, 6f, p)
-                        p.color = 0xFFEDEDED.toInt()
-                        c.drawText(ellipsize(chip.text, p, cellW - 18), x + 10f, cy0 + chipH - 8f, p)
+                        p.color = parseColorOr(chip.color, DEFAULT_CHIP)
+                        c.drawRoundRect(RectF(x + 3f, cy0, x + cellW - 3f, cy0 + chipH), 5f, 5f, p)
+                        p.color = 0xFFF5F5F5.toInt()
+                        c.drawText(ellipsize(chip.text, p, cellW - 10), x + 8f, cy0 + chipH - 7f, p)
                     }
                     if (chips.size > maxChips) {
-                        p.color = 0xFF9A9A9E.toInt(); p.textSize = 16f; p.textAlign = Paint.Align.CENTER
-                        c.drawText("+${chips.size - maxChips}", x + cellW / 2, top0 + maxChips * (chipH + gap) + 12f, p)
+                        p.color = 0xFF9A9A9E.toInt(); p.textSize = 14f; p.textAlign = Paint.Align.CENTER
+                        c.drawText("+${chips.size - maxChips}", x + cellW / 2, top0 + maxChips * (chipH + gap) + 11f, p)
                     }
                 }
                 day++

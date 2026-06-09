@@ -9,8 +9,12 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.widget.RemoteViews
+import androidx.work.BackoffPolicy
+import androidx.work.Constraints
+import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
+import java.util.concurrent.TimeUnit
 
 /**
  * 월 일정 달력 위젯. 실제 갱신(네트워크+그리기)은 WidgetUpdateWorker가 수행하고,
@@ -32,9 +36,13 @@ class TodayScheduleWidget : AppWidgetProvider() {
         const val ACTION_REFRESH = "com.taesung.widget.REFRESH"
 
         fun triggerRefresh(ctx: Context) {
-            WorkManager.getInstance(ctx).enqueue(
-                OneTimeWorkRequestBuilder<WidgetUpdateWorker>().build()
-            )
+            val req = OneTimeWorkRequestBuilder<WidgetUpdateWorker>()
+                .setConstraints(
+                    Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+                )
+                .setBackoffCriteria(BackoffPolicy.LINEAR, 30, TimeUnit.SECONDS)
+                .build()
+            WorkManager.getInstance(ctx).enqueue(req)
         }
 
         /** 워커가 호출 — 비트맵으로 모든 위젯 인스턴스를 갱신. */
