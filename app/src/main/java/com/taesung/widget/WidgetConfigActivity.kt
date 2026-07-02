@@ -61,10 +61,22 @@ class WidgetConfigActivity : AppCompatActivity() {
                 val ok = try { Net.login(this, u, p) } catch (e: Exception) { false }
                 runOnUiThread {
                     if (ok) {
-                        status.text = "로그인 성공! 위젯·알림을 설정합니다."
+                        status.text = "로그인 성공! 일정으로 이동합니다."
                         scheduleUpdates()
                         registerPush()  // FCM 토큰을 이 사용자와 연결
                         TodayScheduleWidget.triggerRefresh(this)
+                        // 로그인 후 앱 첫 화면이 아니라 '일정(/events)'으로 바로 이동
+                        try {
+                            startActivity(
+                                android.content.Intent(
+                                    android.content.Intent.ACTION_VIEW,
+                                    android.net.Uri.parse("${Net.BASE_URL}/events")
+                                ).apply {
+                                    setPackage(packageName)
+                                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                            )
+                        } catch (_: Exception) { /* 브라우저 미설치 등 — 무시 */ }
                         finish()
                     } else {
                         status.text = "로그인 실패 — 아이디/비밀번호를 확인하세요."

@@ -27,17 +27,33 @@ object Net {
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
 
-    /** SharedPreferences 에 쿠키를 저장/복원하는 단순 CookieJar */
+    /**
+     * SharedPreferences 에 쿠키를 저장/복원하는 CookieJar.
+     * ⚠️ 이름(name) 기준으로 '대체' 저장한다. 단순 add 로 누적하면 서버가 매 응답마다
+     *    재발급하는 세션 쿠키(taesung_urban_session)가 옛 값과 함께 여러 개 쌓여,
+     *    다음 요청에 옛(만료) 값이 섞여 전송돼 401(로그인 풀림)이 발생한다.
+     *    또한 만료된 쿠키는 로드 시 제외한다. (단일 호스트 전제 — name 키로 충분)
+     */
     private class PersistentCookieJar(val ctx: Context) : CookieJar {
         override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
-            val set = prefs(ctx).getStringSet(KEY_COOKIES, emptySet())!!.toMutableSet()
-            cookies.forEach { set.add(it.toString()) }
-            prefs(ctx).edit().putStringSet(KEY_COOKIES, set).apply()
+            val now = System.currentTimeMillis()
+            // 기존 저장분을 name 기준 맵으로 복원
+            val byName = HashMap<String, String>()
+            prefs(ctx).getStringSet(KEY_COOKIES, emptySet())!!.forEach { s ->
+                Cookie.parse(url, s)?.let { byName[it.name] = s }
+            }
+            // 새 쿠키 적용: 만료면 제거, 아니면 최신 값으로 대체
+            cookies.forEach { c ->
+                if (c.expiresAt <= now) byName.remove(c.name)
+                else byName[c.name] = c.toString()
+            }
+            prefs(ctx).edit().putStringSet(KEY_COOKIES, byName.values.toSet()).apply()
         }
         override fun loadForRequest(url: HttpUrl): List<Cookie> {
+            val now = System.currentTimeMillis()
             return prefs(ctx).getStringSet(KEY_COOKIES, emptySet())!!
                 .mapNotNull { Cookie.parse(url, it) }
-                .filter { it.matches(url) }
+                .filter { it.matches(url) && it.expiresAt > now }
         }
     }
 
