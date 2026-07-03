@@ -86,8 +86,6 @@ class DaySchedulePopupActivity : AppCompatActivity() {
                 setStroke(dp(1), 0xFFE5E7EB.toInt())
                 cornerRadius = dp(9).toFloat()
             }
-            compoundDrawablePadding = dp(6)
-            setShadowLayer(0f, 0f, 0f, Color.TRANSPARENT)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
