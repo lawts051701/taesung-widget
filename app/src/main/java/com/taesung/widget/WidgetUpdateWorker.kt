@@ -14,8 +14,8 @@ class WidgetUpdateWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, p
         val ctx = applicationContext
 
         if (!Net.isLoggedIn(ctx)) {
-            TodayScheduleWidget.updateAll(
-                ctx, CalendarRenderer.message("로그인이 필요합니다.\n위젯을 눌러 로그인하세요."), loggedIn = false
+            TodayScheduleWidget.updateMessage(
+                ctx, "로그인이 필요합니다.\n위젯을 눌러 로그인하세요.", loggedIn = false
             )
             return Result.success()
         }
@@ -25,21 +25,25 @@ class WidgetUpdateWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, p
         } catch (e: Exception) {
             // 네트워크/HTTP 오류 → 캐시 표시(없으면 안내) + 자동 재시도
             val cached = Net.loadCachedMonth(ctx)
-            val bmp = if (cached != null) CalendarRenderer.calendar(cached)
-            else CalendarRenderer.message("연결 대기 중…\n잠시 후 자동으로 갱신됩니다.")
-            TodayScheduleWidget.updateAll(ctx, bmp, loggedIn = true)
+            if (cached != null) {
+                TodayScheduleWidget.updateAll(ctx, cached, loggedIn = true)
+            } else {
+                TodayScheduleWidget.updateMessage(
+                    ctx, "연결 대기 중…\n잠시 후 자동으로 갱신됩니다.", loggedIn = true
+                )
+            }
             return Result.retry()
         }
 
         if (data == null) {
-            TodayScheduleWidget.updateAll(
-                ctx, CalendarRenderer.message("세션이 만료됐어요.\n위젯을 눌러 다시 로그인하세요."), loggedIn = false
+            TodayScheduleWidget.updateMessage(
+                ctx, "세션이 만료됐어요.\n위젯을 눌러 다시 로그인하세요.", loggedIn = false
             )
             return Result.success()
         }
 
         Net.cacheMonth(ctx, data)
-        TodayScheduleWidget.updateAll(ctx, CalendarRenderer.calendar(data), loggedIn = true)
+        TodayScheduleWidget.updateAll(ctx, data, loggedIn = true)
         return Result.success()
     }
 }

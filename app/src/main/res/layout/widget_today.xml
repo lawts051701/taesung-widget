@@ -2,25 +2,68 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#1C1C1E">
+    android:background="#1C1C1E"
+    android:padding="8dp">
 
-    <!-- 월 달력 비트맵 -->
-    <ImageView
-        android:id="@+id/widget_cal"
+    <LinearLayout
+        android:id="@+id/widget_calendar_content"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:scaleType="fitStart"
-        android:adjustViewBounds="true"
-        android:contentDescription="월 일정 달력" />
+        android:orientation="vertical">
 
-    <!-- 새로고침 -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="42dp">
+
+            <TextView
+                android:id="@+id/widget_month"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:textColor="#FFFFFF"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+        </FrameLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="26dp"
+            android:orientation="horizontal">
+
+            <TextView style="@style/WidgetWeekdaySunday" android:text="일" />
+            <TextView style="@style/WidgetWeekday" android:text="월" />
+            <TextView style="@style/WidgetWeekday" android:text="화" />
+            <TextView style="@style/WidgetWeekday" android:text="수" />
+            <TextView style="@style/WidgetWeekday" android:text="목" />
+            <TextView style="@style/WidgetWeekday" android:text="금" />
+            <TextView style="@style/WidgetWeekdaySaturday" android:text="토" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/widget_days_container"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="vertical" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/widget_message"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:lineSpacingExtra="4dp"
+        android:textColor="#E5E5E7"
+        android:textSize="18sp"
+        android:visibility="gone" />
+
     <TextView
         android:id="@+id/widget_refresh"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="top|end"
+        android:padding="8dp"
         android:text="↻"
         android:textColor="#BBBBBB"
-        android:textSize="18sp"
-        android:padding="8dp" />
+        android:textSize="18sp" />
 </FrameLayout>

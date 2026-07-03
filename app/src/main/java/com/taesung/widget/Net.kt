@@ -73,7 +73,14 @@ object Net {
             val days = JSONObject()
             data.byDay.forEach { (day, chips) ->
                 val arr = JSONArray()
-                chips.forEach { arr.put(JSONObject().put("x", it.text).put("c", it.color ?: "")) }
+                chips.forEach {
+                    arr.put(
+                        JSONObject()
+                            .put("x", it.text)
+                            .put("c", it.color ?: "")
+                            .put("t", it.time ?: "")
+                    )
+                }
                 days.put(day.toString(), arr)
             }
             val o = JSONObject().put("y", data.year).put("m", data.month).put("t", data.today).put("d", days)
@@ -95,7 +102,8 @@ object Net {
                 for (i in 0 until arr.length()) {
                     val cj = arr.getJSONObject(i)
                     val col = cj.optString("c", "")
-                    list.add(EvtChip(cj.getString("x"), col.ifEmpty { null }))
+                    val time = cj.optString("t", "")
+                    list.add(EvtChip(cj.getString("x"), col.ifEmpty { null }, time.ifEmpty { null }))
                 }
                 byDay[k.toInt()] = list
             }
@@ -181,8 +189,10 @@ object Net {
             val arr = JSONArray(resp.body!!.string())
             val parseUtc = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
                 .apply { timeZone = TimeZone.getTimeZone("UTC") }
-            // day -> (정렬키 시각, 색상hex, 제목)
-            val map = HashMap<Int, MutableList<Triple<Long, String, String>>>()
+            data class RawEvent(val sort: Long, val color: String, val title: String, val time: String?)
+            // day -> 일정 원본(정렬키, 색상, 제목, 시간)
+            val map = HashMap<Int, MutableList<RawEvent>>()
+            val timeFmt = SimpleDateFormat("HH:mm", Locale.US).apply { timeZone = kst }
             for (i in 0 until arr.length()) {
                 val ev = arr.getJSONObject(i)
                 val starts = ev.optString("starts_at")
@@ -193,11 +203,12 @@ object Net {
                     val day = c.get(Calendar.DAY_OF_MONTH)
                     val color = ev.optString("color", "")
                     val title = ev.optString("title")
-                    map.getOrPut(day) { mutableListOf() }.add(Triple(d.time, color, title))
+                    val time = if (ev.optBoolean("all_day", false)) "종일" else timeFmt.format(d)
+                    map.getOrPut(day) { mutableListOf() }.add(RawEvent(d.time, color, title, time))
                 } catch (_: Exception) { /* 형식 불량 스킵 */ }
             }
             val byDay = map.mapValues { (_, list) ->
-                list.sortedBy { it.first }.map { EvtChip(it.third, it.second.ifEmpty { null }) }
+                list.sortedBy { it.sort }.map { EvtChip(it.title, it.color.ifEmpty { null }, it.time) }
             }
             return MonthData(year, month, today, byDay)
         }
