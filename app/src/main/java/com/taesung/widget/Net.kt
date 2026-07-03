@@ -79,6 +79,8 @@ object Net {
                             .put("x", it.text)
                             .put("c", it.color ?: "")
                             .put("t", it.time ?: "")
+                            .put("a", it.attendees ?: "")
+                            .put("l", it.location ?: "")
                     )
                 }
                 days.put(day.toString(), arr)
@@ -103,7 +105,17 @@ object Net {
                     val cj = arr.getJSONObject(i)
                     val col = cj.optString("c", "")
                     val time = cj.optString("t", "")
-                    list.add(EvtChip(cj.getString("x"), col.ifEmpty { null }, time.ifEmpty { null }))
+                    val attendees = cj.optString("a", "")
+                    val location = cj.optString("l", "")
+                    list.add(
+                        EvtChip(
+                            cj.getString("x"),
+                            col.ifEmpty { null },
+                            time.ifEmpty { null },
+                            attendees.ifEmpty { null },
+                            location.ifEmpty { null },
+                        )
+                    )
                 }
                 byDay[k.toInt()] = list
             }
@@ -189,7 +201,14 @@ object Net {
             val arr = JSONArray(resp.body!!.string())
             val parseUtc = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
                 .apply { timeZone = TimeZone.getTimeZone("UTC") }
-            data class RawEvent(val sort: Long, val color: String, val title: String, val time: String?)
+            data class RawEvent(
+                val sort: Long,
+                val color: String,
+                val title: String,
+                val time: String?,
+                val attendees: String?,
+                val location: String?,
+            )
             // day -> 일정 원본(정렬키, 색상, 제목, 시간)
             val map = HashMap<Int, MutableList<RawEvent>>()
             val timeFmt = SimpleDateFormat("HH:mm", Locale.US).apply { timeZone = kst }
@@ -202,16 +221,107 @@ object Net {
                     if (c.get(Calendar.YEAR) != year || c.get(Calendar.MONTH) + 1 != month) continue
                     val day = c.get(Calendar.DAY_OF_MONTH)
                     val color = ev.optString("color", "")
-                    val title = ev.optString("title")
+                    val rawTitle = ev.optString("title")
+                    val parsed = parseEventTitle(rawTitle)
+                    val title = parsed.cleanTitle.ifBlank { rawTitle }
                     val time = if (ev.optBoolean("all_day", false)) "종일" else timeFmt.format(d)
-                    map.getOrPut(day) { mutableListOf() }.add(RawEvent(d.time, color, title, time))
+                    val attendees = eventAttendees(ev, parsed)
+                    val location = cleanOpt(ev, "location")
+                    map.getOrPut(day) { mutableListOf() }
+                        .add(RawEvent(d.time, color, title, time, attendees, location))
                 } catch (_: Exception) { /* 형식 불량 스킵 */ }
             }
             val byDay = map.mapValues { (_, list) ->
-                list.sortedBy { it.sort }.map { EvtChip(it.title, it.color.ifEmpty { null }, it.time) }
+                list.sortedBy { it.sort }.map {
+                    EvtChip(
+                        it.title,
+                        it.color.ifEmpty { null },
+                        it.time,
+                        it.attendees,
+                        it.location,
+                    )
+                }
             }
             return MonthData(year, month, today, byDay)
         }
+    }
+
+    private data class ParsedTitle(val cleanTitle: String, val attendees: List<String>)
+
+    private fun parseEventTitle(raw: String): ParsedTitle {
+        var s = raw.trim()
+        val attendees = ArrayList<String>()
+        var cancelled = false
+
+        val cancelRe = Regex("^\\s*[(\\[]?\\s*취\\s*소\\s*[)\\]]?[\\s_:\\-]*")
+        if (cancelRe.containsMatchIn(s)) {
+            cancelled = true
+            s = cancelRe.replace(s, "").trim()
+        }
+
+        val attendeeRe = Regex("\\s*\\[([^\\[\\]]+)]\\s*$")
+        while (true) {
+            val match = attendeeRe.find(s) ?: break
+            attendees.addAll(0, splitPeople(match.groupValues[1]))
+            s = s.substring(0, match.range.first).trim()
+        }
+
+        s = s.replace(Regex("[_:\\-]+$"), "").trim()
+        val usIdx = s.indexOf("_")
+        val site: String?
+        var activity: String?
+        if (usIdx > 0) {
+            site = s.substring(0, usIdx).trim()
+            activity = s.substring(usIdx + 1).trim()
+        } else {
+            site = null
+            activity = s
+        }
+
+        activity = activity
+            ?.replace(Regex("\\s*\\([^)]+\\)\\s*"), " ")
+            ?.trim()
+
+        var cleanTitle = when {
+            !site.isNullOrBlank() && !activity.isNullOrBlank() -> "$site · $activity"
+            !site.isNullOrBlank() -> site
+            !activity.isNullOrBlank() -> activity
+            else -> raw.trim()
+        }
+        if (cancelled && cleanTitle.isNotBlank()) cleanTitle = "(취소) $cleanTitle"
+
+        return ParsedTitle(cleanTitle, distinctNames(attendees))
+    }
+
+    private fun eventAttendees(ev: JSONObject, parsed: ParsedTitle): String? {
+        val names = ArrayList<String>()
+        names.addAll(splitPeople(cleanOpt(ev, "participants")))
+        names.addAll(parsed.attendees)
+        names.add(cleanOpt(ev, "assigned_to_abbr") ?: cleanOpt(ev, "assigned_to_name") ?: "")
+        return distinctNames(names).joinToString(", ").ifBlank { null }
+    }
+
+    private fun splitPeople(raw: String?): List<String> {
+        if (raw.isNullOrBlank()) return emptyList()
+        return raw
+            .split(Regex("[,、·ㆍ/]+"))
+            .map { it.trim() }
+            .filter { it.isNotBlank() && !it.equals("null", ignoreCase = true) }
+    }
+
+    private fun distinctNames(names: List<String>): List<String> {
+        val seen = LinkedHashSet<String>()
+        names.forEach { name ->
+            val clean = name.trim()
+            if (clean.isNotBlank() && !clean.equals("null", ignoreCase = true)) seen.add(clean)
+        }
+        return seen.toList()
+    }
+
+    private fun cleanOpt(o: JSONObject, key: String): String? {
+        if (!o.has(key) || o.isNull(key)) return null
+        val value = o.optString(key, "").trim()
+        return value.takeUnless { it.isBlank() || it.equals("null", ignoreCase = true) }
     }
 
     /** 위젯에 표시할 오늘 일정 텍스트 — 상태별 안내 메시지까지 한 번에 처리. */

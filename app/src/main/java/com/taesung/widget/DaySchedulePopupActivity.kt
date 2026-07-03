@@ -5,9 +5,6 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
-import android.text.SpannableString
-import android.text.Spanned
-import android.text.style.ForegroundColorSpan
 import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
@@ -62,6 +59,8 @@ class DaySchedulePopupActivity : AppCompatActivity() {
                             text = o.optString("text"),
                             time = o.optString("time").ifBlank { null },
                             color = o.optString("color").ifBlank { null },
+                            attendees = o.optString("attendees").ifBlank { null },
+                            location = o.optString("location").ifBlank { null },
                         )
                     )
                 }
@@ -74,12 +73,13 @@ class DaySchedulePopupActivity : AppCompatActivity() {
     private fun eventRow(ev: PopupEvent): View {
         val label = if (ev.time.isNullOrBlank()) ev.text else "${ev.time}  ${ev.text}"
         val accent = parseColorOr(ev.color, 0xFF4F46E5.toInt())
-        return TextView(this).apply {
-            text = SpannableString("●  $label").apply {
-                setSpan(ForegroundColorSpan(accent), 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-            }
-            textSize = 16f
-            setTextColor(0xFF111827.toInt())
+        val meta = buildList {
+            if (!ev.attendees.isNullOrBlank()) add("참석자: ${ev.attendees}")
+            if (!ev.location.isNullOrBlank()) add("장소: ${ev.location}")
+        }.joinToString(" · ")
+
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
             setPadding(dp(12), dp(9), dp(12), dp(9))
             background = GradientDrawable().apply {
                 setColor(0xFFF8FAFC.toInt())
@@ -92,6 +92,48 @@ class DaySchedulePopupActivity : AppCompatActivity() {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
             ).apply { bottomMargin = dp(8) }
+
+            addView(
+                TextView(this@DaySchedulePopupActivity).apply {
+                    text = "●"
+                    textSize = 15f
+                    setTextColor(accent)
+                    setPadding(0, dp(1), dp(8), 0)
+                    setShadowLayer(0f, 0f, 0f, Color.TRANSPARENT)
+                }
+            )
+
+            addView(
+                LinearLayout(this@DaySchedulePopupActivity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    layoutParams = LinearLayout.LayoutParams(
+                        0,
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        1f,
+                    )
+
+                    addView(
+                        TextView(this@DaySchedulePopupActivity).apply {
+                            text = label
+                            textSize = 16f
+                            setTextColor(0xFF111827.toInt())
+                            setShadowLayer(0f, 0f, 0f, Color.TRANSPARENT)
+                        }
+                    )
+
+                    if (meta.isNotBlank()) {
+                        addView(
+                            TextView(this@DaySchedulePopupActivity).apply {
+                                text = meta
+                                textSize = 13f
+                                setTextColor(0xFF6B7280.toInt())
+                                setPadding(0, dp(3), 0, 0)
+                                setShadowLayer(0f, 0f, 0f, Color.TRANSPARENT)
+                            }
+                        )
+                    }
+                }
+            )
         }
     }
 
@@ -119,5 +161,11 @@ class DaySchedulePopupActivity : AppCompatActivity() {
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 
-    private data class PopupEvent(val text: String, val time: String?, val color: String?)
+    private data class PopupEvent(
+        val text: String,
+        val time: String?,
+        val color: String?,
+        val attendees: String?,
+        val location: String?,
+    )
 }

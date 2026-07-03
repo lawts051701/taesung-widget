@@ -146,7 +146,7 @@ class TodayScheduleWidget : AppWidgetProvider() {
                 }
             )
 
-            val eventViews = intArrayOf(R.id.day_event_1, R.id.day_event_2)
+            val eventViews = intArrayOf(R.id.day_event_1, R.id.day_event_2, R.id.day_event_3)
             eventViews.forEachIndexed { idx, viewId ->
                 val chip = chips.getOrNull(idx)
                 if (chip == null) {
@@ -170,6 +170,7 @@ class TodayScheduleWidget : AppWidgetProvider() {
             cell.setTextViewText(R.id.day_num, "")
             cell.setViewVisibility(R.id.day_event_1, View.GONE)
             cell.setViewVisibility(R.id.day_event_2, View.GONE)
+            cell.setViewVisibility(R.id.day_event_3, View.GONE)
             cell.setViewVisibility(R.id.day_more, View.GONE)
         }
 
@@ -209,6 +210,8 @@ class TodayScheduleWidget : AppWidgetProvider() {
                         .put("text", it.text)
                         .put("color", it.color ?: "")
                         .put("time", it.time ?: "")
+                        .put("attendees", it.attendees ?: "")
+                        .put("location", it.location ?: "")
                 )
             }
             return arr.toString()
