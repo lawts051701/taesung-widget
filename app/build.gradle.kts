@@ -13,8 +13,8 @@ android {
         applicationId = "org.duckdns.taesung_urban.twa"
         minSdk = 24
         targetSdk = 36
-        versionCode = 105
-        versionName = "2.5"
+        versionCode = 106
+        versionName = "2.6"
     }
 
     signingConfigs {

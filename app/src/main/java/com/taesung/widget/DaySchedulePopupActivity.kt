@@ -164,6 +164,7 @@ class DaySchedulePopupActivity : AppCompatActivity() {
     }
 
     private fun eventRow(ev: PopupEvent): View {
+        val dark = ThemePrefs.isDark(this)
         val label = eventLabel(ev)
         val accent = parseColorOr(ev.color, 0xFF4F46E5.toInt())
         val meta = buildList {
@@ -175,8 +176,8 @@ class DaySchedulePopupActivity : AppCompatActivity() {
             orientation = LinearLayout.HORIZONTAL
             setPadding(dp(12), dp(9), dp(12), dp(9))
             background = GradientDrawable().apply {
-                setColor(0xFFF8FAFC.toInt())
-                setStroke(dp(1), 0xFFE5E7EB.toInt())
+                setColor(if (dark) 0xFF1F2937.toInt() else 0xFFF8FAFC.toInt())
+                setStroke(dp(1), if (dark) 0xFF374151.toInt() else 0xFFE5E7EB.toInt())
                 cornerRadius = dp(9).toFloat()
             }
             layoutParams = LinearLayout.LayoutParams(
@@ -207,7 +208,7 @@ class DaySchedulePopupActivity : AppCompatActivity() {
                         TextView(this@DaySchedulePopupActivity).apply {
                             text = label
                             textSize = 16f
-                            setTextColor(0xFF111827.toInt())
+                            setTextColor(if (dark) 0xFFF9FAFB.toInt() else 0xFF111827.toInt())
                             setShadowLayer(0f, 0f, 0f, Color.TRANSPARENT)
                         }
                     )
@@ -217,7 +218,7 @@ class DaySchedulePopupActivity : AppCompatActivity() {
                             TextView(this@DaySchedulePopupActivity).apply {
                                 text = meta
                                 textSize = 13f
-                                setTextColor(0xFF6B7280.toInt())
+                                setTextColor(if (dark) 0xFFD1D5DB.toInt() else 0xFF6B7280.toInt())
                                 setPadding(0, dp(3), 0, 0)
                                 setShadowLayer(0f, 0f, 0f, Color.TRANSPARENT)
                             }
@@ -231,7 +232,7 @@ class DaySchedulePopupActivity : AppCompatActivity() {
                     TextView(this@DaySchedulePopupActivity).apply {
                         text = "삭제"
                         textSize = 13f
-                        setTextColor(0xFFDC2626.toInt())
+                        setTextColor(if (dark) 0xFFFCA5A5.toInt() else 0xFFDC2626.toInt())
                         setPadding(dp(10), dp(2), 0, 0)
                         setOnClickListener { confirmDelete(ev) }
                     }

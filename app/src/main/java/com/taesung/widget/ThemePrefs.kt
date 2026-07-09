@@ -14,13 +14,13 @@ object ThemePrefs {
 
     fun mode(ctx: Context): String =
         ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
-            .getString(KEY_MODE, MODE_LIGHT)
-            ?: MODE_LIGHT
+            .getString(KEY_MODE, MODE_SYSTEM)
+            ?: MODE_SYSTEM
 
     fun setMode(ctx: Context, mode: String) {
         val clean = when (mode) {
             MODE_SYSTEM, MODE_LIGHT, MODE_DARK -> mode
-            else -> MODE_LIGHT
+            else -> MODE_SYSTEM
         }
         ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
             .edit()
