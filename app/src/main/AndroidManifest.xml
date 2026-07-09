@@ -63,14 +63,20 @@
         <activity
             android:name=".NotificationPopupActivity"
             android:theme="@style/Theme.Taesung.Dialog"
+            android:taskAffinity="org.duckdns.taesung_urban.twa.widgetpopup"
             android:excludeFromRecents="true"
+            android:finishOnTaskLaunch="true"
+            android:noHistory="true"
             android:exported="false" />
 
         <!-- 위젯 날짜 탭 시 뜨는 일정 팝업(다이얼로그) -->
         <activity
             android:name=".DaySchedulePopupActivity"
             android:theme="@style/Theme.Taesung.Dialog"
+            android:taskAffinity="org.duckdns.taesung_urban.twa.widgetpopup"
             android:excludeFromRecents="true"
+            android:finishOnTaskLaunch="true"
+            android:noHistory="true"
             android:exported="false" />
 
         <!-- 홈 화면 위젯: 오늘 일정 -->
