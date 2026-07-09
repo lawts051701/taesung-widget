@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
+import android.os.Bundle
 import android.view.View
 import android.widget.RemoteViews
 import androidx.work.BackoffPolicy
@@ -34,6 +35,18 @@ class TodayScheduleWidget : AppWidgetProvider() {
     override fun onReceive(ctx: Context, intent: Intent) {
         super.onReceive(ctx, intent)
         if (intent.action == ACTION_REFRESH) triggerRefresh(ctx)
+    }
+
+    override fun onAppWidgetOptionsChanged(
+        ctx: Context,
+        mgr: AppWidgetManager,
+        appWidgetId: Int,
+        newOptions: Bundle,
+    ) {
+        super.onAppWidgetOptionsChanged(ctx, mgr, appWidgetId, newOptions)
+        val cached = Net.loadCachedMonth(ctx)
+        if (cached != null && Net.isLoggedIn(ctx)) updateAll(ctx, cached, loggedIn = true)
+        else triggerRefresh(ctx)
     }
 
     companion object {
@@ -95,6 +108,7 @@ class TodayScheduleWidget : AppWidgetProvider() {
             val daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
 
             for (id in ids) {
+                val maxEvents = maxEventsForWidget(mgr, id)
                 val views = RemoteViews(ctx.packageName, R.layout.widget_today)
                 views.setViewVisibility(R.id.widget_calendar_content, View.VISIBLE)
                 views.setViewVisibility(R.id.widget_message, View.GONE)
@@ -110,7 +124,7 @@ class TodayScheduleWidget : AppWidgetProvider() {
                         val cell = RemoteViews(ctx.packageName, R.layout.widget_day_cell)
                         if (day in 1..daysInMonth) {
                             val chips = data.byDay[day].orEmpty()
-                            bindDayCell(cell, data, day, col, chips)
+                            bindDayCell(cell, data, day, col, chips, maxEvents)
                             cell.setOnClickPendingIntent(
                                 R.id.day_cell_root,
                                 dayPopupPi(ctx, data, day, chips, flags)
@@ -132,6 +146,7 @@ class TodayScheduleWidget : AppWidgetProvider() {
             day: Int,
             col: Int,
             chips: List<EvtChip>,
+            maxEvents: Int,
         ) {
             val isToday = day == data.today
             cell.setInt(R.id.day_cell_root, "setBackgroundColor", if (isToday) TODAY_BG else CELL_BG)
@@ -146,9 +161,16 @@ class TodayScheduleWidget : AppWidgetProvider() {
                 }
             )
 
-            val eventViews = intArrayOf(R.id.day_event_1, R.id.day_event_2, R.id.day_event_3)
+            val eventViews = intArrayOf(
+                R.id.day_event_1,
+                R.id.day_event_2,
+                R.id.day_event_3,
+                R.id.day_event_4,
+                R.id.day_event_5,
+            )
+            val showLimit = maxEvents.coerceIn(1, eventViews.size)
             eventViews.forEachIndexed { idx, viewId ->
-                val chip = chips.getOrNull(idx)
+                val chip = if (idx < showLimit) chips.getOrNull(idx) else null
                 if (chip == null) {
                     cell.setViewVisibility(viewId, View.GONE)
                 } else {
@@ -157,9 +179,9 @@ class TodayScheduleWidget : AppWidgetProvider() {
                     cell.setInt(viewId, "setBackgroundColor", parseColorOr(chip.color, DEFAULT_CHIP))
                 }
             }
-            if (chips.size > eventViews.size) {
+            if (chips.size > showLimit) {
                 cell.setViewVisibility(R.id.day_more, View.VISIBLE)
-                cell.setTextViewText(R.id.day_more, "+${chips.size - eventViews.size}")
+                cell.setTextViewText(R.id.day_more, "+${chips.size - showLimit}")
             } else {
                 cell.setViewVisibility(R.id.day_more, View.GONE)
             }
@@ -171,7 +193,21 @@ class TodayScheduleWidget : AppWidgetProvider() {
             cell.setViewVisibility(R.id.day_event_1, View.GONE)
             cell.setViewVisibility(R.id.day_event_2, View.GONE)
             cell.setViewVisibility(R.id.day_event_3, View.GONE)
+            cell.setViewVisibility(R.id.day_event_4, View.GONE)
+            cell.setViewVisibility(R.id.day_event_5, View.GONE)
             cell.setViewVisibility(R.id.day_more, View.GONE)
+        }
+
+        private fun maxEventsForWidget(mgr: AppWidgetManager, id: Int): Int {
+            val options = mgr.getAppWidgetOptions(id)
+            val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 460)
+            return when {
+                minHeight >= 620 -> 5
+                minHeight >= 520 -> 4
+                minHeight >= 360 -> 3
+                minHeight >= 280 -> 2
+                else -> 1
+            }
         }
 
         private fun dayPopupPi(
@@ -208,6 +244,7 @@ class TodayScheduleWidget : AppWidgetProvider() {
                 arr.put(
                     JSONObject()
                         .put("text", it.text)
+                        .put("id", it.id ?: JSONObject.NULL)
                         .put("color", it.color ?: "")
                         .put("time", it.time ?: "")
                         .put("attendees", it.attendees ?: "")

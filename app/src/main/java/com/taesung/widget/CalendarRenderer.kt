@@ -9,6 +9,7 @@ import java.util.Calendar
 
 /** 일정 칩 한 개: 표시 텍스트 + 색상(hex, null이면 중립색) + 팝업용 상세 정보. */
 data class EvtChip(
+    val id: Int?,
     val text: String,
     val color: String?,
     val time: String? = null,

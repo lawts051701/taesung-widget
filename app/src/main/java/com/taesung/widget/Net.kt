@@ -76,6 +76,7 @@ object Net {
                 chips.forEach {
                     arr.put(
                         JSONObject()
+                            .put("id", it.id ?: JSONObject.NULL)
                             .put("x", it.text)
                             .put("c", it.color ?: "")
                             .put("t", it.time ?: "")
@@ -109,6 +110,7 @@ object Net {
                     val location = cj.optString("l", "")
                     list.add(
                         EvtChip(
+                            if (cj.isNull("id")) null else cj.optInt("id"),
                             cj.getString("x"),
                             col.ifEmpty { null },
                             time.ifEmpty { null },
@@ -202,6 +204,7 @@ object Net {
             val parseUtc = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
                 .apply { timeZone = TimeZone.getTimeZone("UTC") }
             data class RawEvent(
+                val id: Int?,
                 val sort: Long,
                 val color: String,
                 val title: String,
@@ -220,20 +223,22 @@ object Net {
                     val c = Calendar.getInstance(kst).apply { time = d }
                     if (c.get(Calendar.YEAR) != year || c.get(Calendar.MONTH) + 1 != month) continue
                     val day = c.get(Calendar.DAY_OF_MONTH)
-                    val color = ev.optString("color", "")
+                    val color = cleanOpt(ev, "color") ?: cleanOpt(ev, "category_color") ?: ""
                     val rawTitle = ev.optString("title")
                     val parsed = parseEventTitle(rawTitle)
                     val title = parsed.cleanTitle.ifBlank { rawTitle }
                     val time = if (ev.optBoolean("all_day", false)) "종일" else timeFmt.format(d)
                     val attendees = eventAttendees(ev, parsed)
                     val location = cleanOpt(ev, "location")
+                    val eventId = if (ev.has("id") && !ev.isNull("id")) ev.optInt("id") else null
                     map.getOrPut(day) { mutableListOf() }
-                        .add(RawEvent(d.time, color, title, time, attendees, location))
+                        .add(RawEvent(eventId, d.time, color, title, time, attendees, location))
                 } catch (_: Exception) { /* 형식 불량 스킵 */ }
             }
             val byDay = map.mapValues { (_, list) ->
                 list.sortedBy { it.sort }.map {
                     EvtChip(
+                        it.id,
                         it.title,
                         it.color.ifEmpty { null },
                         it.time,
@@ -359,6 +364,18 @@ object Net {
             }
             val o = JSONObject(resp.body!!.string())
             return o.optInt("created", o.optJSONArray("events")?.length() ?: 0)
+        }
+    }
+
+    /** 일정 삭제. 반환: 1 성공, -2 인증 실패. */
+    fun deleteEvent(ctx: Context, eventId: Int): Int {
+        val req = Request.Builder().url("$BASE_URL/api/events/$eventId").delete().build()
+        client(ctx).newCall(req).execute().use { resp ->
+            if (resp.code == 401) return -2
+            if (!resp.isSuccessful) {
+                throw RuntimeException("HTTP ${resp.code}: ${resp.body?.string().orEmpty().take(160)}")
+            }
+            return 1
         }
     }
 

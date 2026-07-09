@@ -1,5 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <style name="Theme.Taesung" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="colorAccent">#4F46E5</item>
+        <item name="android:fontFamily">sans</item>
+        <item name="android:forceDarkAllowed">false</item>
+        <item name="android:navigationBarColor">#111827</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+
+    <style name="Theme.Taesung.Dialog" parent="Theme.AppCompat.DayNight.Dialog">
+        <item name="colorAccent">#4F46E5</item>
+        <item name="android:fontFamily">sans</item>
+        <item name="android:forceDarkAllowed">false</item>
+    </style>
+
     <style name="WidgetWeekday">
         <item name="android:layout_width">0dp</item>
         <item name="android:layout_height">match_parent</item>

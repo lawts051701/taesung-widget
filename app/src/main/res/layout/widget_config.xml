@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/cfg_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
@@ -7,12 +8,56 @@
     android:gravity="center_vertical">
 
     <TextView
+        android:id="@+id/cfg_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="태성 ERP 오늘 일정 위젯 로그인"
+        android:textColor="#111827"
         android:textSize="18sp"
         android:textStyle="bold"
         android:layout_marginBottom="16dp" />
+
+    <TextView
+        android:id="@+id/cfg_theme_label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="화면 모드"
+        android:textColor="#374151"
+        android:textSize="13sp"
+        android:textStyle="bold" />
+
+    <RadioGroup
+        android:id="@+id/cfg_theme_group"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:layout_marginBottom="16dp"
+        android:orientation="horizontal">
+
+        <RadioButton
+            android:id="@+id/cfg_theme_light"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="밝게"
+            android:textColor="#111827" />
+
+        <RadioButton
+            android:id="@+id/cfg_theme_dark"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="어둡게"
+            android:textColor="#111827" />
+
+        <RadioButton
+            android:id="@+id/cfg_theme_system"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="시스템"
+            android:textColor="#111827" />
+    </RadioGroup>
 
     <EditText
         android:id="@+id/cfg_id"
@@ -20,6 +65,8 @@
         android:layout_height="wrap_content"
         android:hint="아이디"
         android:inputType="text"
+        android:textColor="#111827"
+        android:textColorHint="#9CA3AF"
         android:autofillHints="username" />
 
     <EditText
@@ -28,6 +75,8 @@
         android:layout_height="wrap_content"
         android:hint="비밀번호"
         android:inputType="textPassword"
+        android:textColor="#111827"
+        android:textColorHint="#9CA3AF"
         android:autofillHints="password"
         android:layout_marginTop="8dp" />
 

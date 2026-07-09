@@ -6,11 +6,12 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
+        android:name=".TaesungApp"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:label="@string/app_name"
-        android:theme="@style/Theme.AppCompat.DayNight">
+        android:theme="@style/Theme.Taesung">
 
         <!-- FCM 네이티브 푸시 수신 -->
         <service
@@ -61,14 +62,14 @@
         <!-- 푸시 알림 탭 시 뜨는 작은 팝업(다이얼로그) -->
         <activity
             android:name=".NotificationPopupActivity"
-            android:theme="@style/Theme.AppCompat.DayNight.Dialog"
+            android:theme="@style/Theme.Taesung.Dialog"
             android:excludeFromRecents="true"
             android:exported="false" />
 
         <!-- 위젯 날짜 탭 시 뜨는 일정 팝업(다이얼로그) -->
         <activity
             android:name=".DaySchedulePopupActivity"
-            android:theme="@style/Theme.AppCompat.DayNight.Dialog"
+            android:theme="@style/Theme.Taesung.Dialog"
             android:excludeFromRecents="true"
             android:exported="false" />
 

@@ -2,10 +2,13 @@ package com.taesung.widget
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
 import android.widget.Button
 import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.RadioGroup
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -25,8 +28,12 @@ import java.util.concurrent.TimeUnit
  */
 class WidgetConfigActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        ThemePrefs.apply(this)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.widget_config)
+
+        styleScreen()
+        bindThemeMode()
 
         val id = findViewById<EditText>(R.id.cfg_id)
         val pw = findViewById<EditText>(R.id.cfg_pw)
@@ -85,6 +92,68 @@ class WidgetConfigActivity : AppCompatActivity() {
             }.start()
         }
     }
+
+    private fun bindThemeMode() {
+        val group = findViewById<RadioGroup>(R.id.cfg_theme_group)
+        val checked = when (ThemePrefs.mode(this)) {
+            ThemePrefs.MODE_DARK -> R.id.cfg_theme_dark
+            ThemePrefs.MODE_SYSTEM -> R.id.cfg_theme_system
+            else -> R.id.cfg_theme_light
+        }
+        group.check(checked)
+        group.setOnCheckedChangeListener { _, id ->
+            val mode = when (id) {
+                R.id.cfg_theme_dark -> ThemePrefs.MODE_DARK
+                R.id.cfg_theme_system -> ThemePrefs.MODE_SYSTEM
+                else -> ThemePrefs.MODE_LIGHT
+            }
+            if (mode == ThemePrefs.mode(this)) return@setOnCheckedChangeListener
+            ThemePrefs.setMode(this, mode)
+            ThemePrefs.apply(this)
+            recreate()
+        }
+    }
+
+    private fun styleScreen() {
+        val dark = ThemePrefs.isDark(this)
+        findViewById<LinearLayout>(R.id.cfg_root).setBackgroundColor(if (dark) 0xFF111827.toInt() else 0xFFFFFFFF.toInt())
+        val text = if (dark) 0xFFF9FAFB.toInt() else 0xFF111827.toInt()
+        val sub = if (dark) 0xFFD1D5DB.toInt() else 0xFF6B7280.toInt()
+        val hint = if (dark) 0xFF9CA3AF.toInt() else 0xFF9CA3AF.toInt()
+        val inputFill = if (dark) 0xFF1F2937.toInt() else 0xFFFFFFFF.toInt()
+        val inputStroke = if (dark) 0xFF4B5563.toInt() else 0xFFD1D5DB.toInt()
+        findViewById<TextView>(R.id.cfg_title).setTextColor(text)
+        findViewById<TextView>(R.id.cfg_theme_label).setTextColor(sub)
+        val ids = listOf(
+            R.id.cfg_id,
+            R.id.cfg_pw,
+        )
+        ids.forEach { id ->
+            findViewById<EditText>(id).apply {
+                setTextColor(text)
+                setHintTextColor(hint)
+                background = rounded(inputFill, inputStroke, 4)
+                setPadding(dp(10), paddingTop, dp(10), paddingBottom)
+            }
+        }
+        listOf(
+            R.id.cfg_theme_light,
+            R.id.cfg_theme_dark,
+            R.id.cfg_theme_system,
+        ).forEach { id ->
+            findViewById<TextView>(id).setTextColor(text)
+        }
+        findViewById<TextView>(R.id.cfg_status).setTextColor(sub)
+    }
+
+    private fun rounded(fill: Int, stroke: Int, radius: Int): GradientDrawable =
+        GradientDrawable().apply {
+            setColor(fill)
+            setStroke(dp(1), stroke)
+            cornerRadius = dp(radius).toFloat()
+        }
+
+    private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 
     /** FCM 토큰을 받아 서버(로그인 세션)에 등록 — 이 사용자에게 알림이 오도록 연결. */
     private fun registerPush() {

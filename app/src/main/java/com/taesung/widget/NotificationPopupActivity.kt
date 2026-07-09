@@ -1,9 +1,11 @@
 package com.taesung.widget
 
 import android.content.Intent
+import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.widget.Button
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 
@@ -13,9 +15,11 @@ import androidx.appcompat.app.AppCompatActivity
  */
 class NotificationPopupActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        ThemePrefs.apply(this)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.dialog_notification)
         setFinishOnTouchOutside(true)
+        styleDialog()
 
         val title = intent.getStringExtra("title") ?: "정비사업팀"
         val body = intent.getStringExtra("body") ?: ""
@@ -37,5 +41,20 @@ class NotificationPopupActivity : AppCompatActivity() {
             } catch (_: Exception) { /* 무시 */ }
             finish()
         }
+    }
+
+    private fun styleDialog() {
+        val dark = ThemePrefs.isDark(this)
+        val bg = if (dark) 0xFF111827.toInt() else 0xFFFFFFFF.toInt()
+        val text = if (dark) 0xFFF9FAFB.toInt() else 0xFF111827.toInt()
+        val sub = if (dark) 0xFFD1D5DB.toInt() else 0xFF6B7280.toInt()
+        val primary = if (dark) 0xFFA5B4FC.toInt() else 0xFF4F46E5.toInt()
+
+        window?.setBackgroundDrawable(ColorDrawable(bg))
+        findViewById<LinearLayout>(R.id.np_root).setBackgroundColor(bg)
+        findViewById<TextView>(R.id.np_title).setTextColor(text)
+        findViewById<TextView>(R.id.np_body).setTextColor(sub)
+        findViewById<Button>(R.id.np_close).setTextColor(sub)
+        findViewById<Button>(R.id.np_go).setTextColor(primary)
     }
 }
