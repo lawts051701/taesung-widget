@@ -343,6 +343,25 @@ object Net {
         } catch (e: Exception) { "네트워크 오류 — 새로고침을 눌러 주세요." }
     }
 
+    /** 자연어 일정 입력을 서버에서 분석해 바로 등록. 반환: 생성 건수, -2 인증 실패. */
+    fun createNaturalEvent(ctx: Context, text: String, today: String): Int {
+        val body = JSONObject()
+            .put("text", text)
+            .put("today", today)
+            .put("assign_to_self_if_empty", true)
+            .toString()
+            .toRequestBody("application/json".toMediaType())
+        val req = Request.Builder().url("$BASE_URL/api/events/create-nl").post(body).build()
+        client(ctx).newCall(req).execute().use { resp ->
+            if (resp.code == 401) return -2
+            if (!resp.isSuccessful) {
+                throw RuntimeException("HTTP ${resp.code}: ${resp.body?.string().orEmpty().take(160)}")
+            }
+            val o = JSONObject(resp.body!!.string())
+            return o.optInt("created", o.optJSONArray("events")?.length() ?: 0)
+        }
+    }
+
     /** FCM 기기 토큰을 서버에 등록(로그인 세션 쿠키 사용). 성공 여부 반환. */
     fun registerFcmToken(ctx: Context, token: String): Boolean {
         if (!isLoggedIn(ctx)) return false

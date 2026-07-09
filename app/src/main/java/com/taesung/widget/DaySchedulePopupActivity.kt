@@ -7,8 +7,10 @@ import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import org.json.JSONArray
 
@@ -32,6 +34,41 @@ class DaySchedulePopupActivity : AppCompatActivity() {
             list.addView(emptyText())
         } else {
             events.forEach { list.addView(eventRow(it)) }
+        }
+
+        val nlInput = findViewById<EditText>(R.id.ds_nl_input)
+        val nlAdd = findViewById<Button>(R.id.ds_nl_add)
+        val nlStatus = findViewById<TextView>(R.id.ds_nl_status)
+        nlAdd.setOnClickListener {
+            val text = nlInput.text?.toString()?.trim().orEmpty()
+            if (text.length < 2) {
+                nlStatus.text = "일정을 한 문장으로 입력하세요."
+                return@setOnClickListener
+            }
+            nlAdd.isEnabled = false
+            nlStatus.text = "등록 중..."
+            Thread {
+                try {
+                    val created = Net.createNaturalEvent(applicationContext, text, date)
+                    runOnUiThread {
+                        nlAdd.isEnabled = true
+                        if (created == -2) {
+                            nlStatus.text = "세션이 만료됐어요. 다시 로그인하세요."
+                            Toast.makeText(this@DaySchedulePopupActivity, "로그인이 필요합니다.", Toast.LENGTH_SHORT).show()
+                        } else {
+                            nlInput.setText("")
+                            nlStatus.text = "일정 ${created}건 등록 완료"
+                            Toast.makeText(this@DaySchedulePopupActivity, "일정 등록 완료", Toast.LENGTH_SHORT).show()
+                            TodayScheduleWidget.triggerRefresh(applicationContext)
+                        }
+                    }
+                } catch (e: Exception) {
+                    runOnUiThread {
+                        nlAdd.isEnabled = true
+                        nlStatus.text = "등록 실패: ${e.message ?: "네트워크 오류"}"
+                    }
+                }
+            }.start()
         }
 
         findViewById<Button>(R.id.ds_close).setOnClickListener { finish() }
