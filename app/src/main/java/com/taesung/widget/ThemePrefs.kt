@@ -1,11 +1,9 @@
 package com.taesung.widget
 
 import android.content.Context
-import android.content.res.Configuration
 import androidx.appcompat.app.AppCompatDelegate
 
 object ThemePrefs {
-    const val MODE_SYSTEM = "system"
     const val MODE_LIGHT = "light"
     const val MODE_DARK = "dark"
 
@@ -14,13 +12,13 @@ object ThemePrefs {
 
     fun mode(ctx: Context): String =
         ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
-            .getString(KEY_MODE, MODE_SYSTEM)
-            ?: MODE_SYSTEM
+            .getString(KEY_MODE, MODE_LIGHT)
+            .let { if (it == MODE_DARK) MODE_DARK else MODE_LIGHT }
 
     fun setMode(ctx: Context, mode: String) {
         val clean = when (mode) {
-            MODE_SYSTEM, MODE_LIGHT, MODE_DARK -> mode
-            else -> MODE_SYSTEM
+            MODE_DARK -> MODE_DARK
+            else -> MODE_LIGHT
         }
         ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
             .edit()
@@ -31,19 +29,11 @@ object ThemePrefs {
     fun apply(ctx: Context) {
         AppCompatDelegate.setDefaultNightMode(
             when (mode(ctx)) {
-                MODE_SYSTEM -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
                 MODE_DARK -> AppCompatDelegate.MODE_NIGHT_YES
                 else -> AppCompatDelegate.MODE_NIGHT_NO
             }
         )
     }
 
-    fun isDark(ctx: Context): Boolean {
-        return when (mode(ctx)) {
-            MODE_DARK -> true
-            MODE_LIGHT -> false
-            else -> (ctx.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
-                Configuration.UI_MODE_NIGHT_YES
-        }
-    }
+    fun isDark(ctx: Context): Boolean = mode(ctx) == MODE_DARK
 }

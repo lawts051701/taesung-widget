@@ -1,34 +1,109 @@
 package com.taesung.widget
 
 import android.content.Context
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
+import android.util.Base64
 import okhttp3.Cookie
 import okhttp3.CookieJar
 import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.security.KeyStore
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
+import javax.crypto.spec.GCMParameterSpec
 
 /**
- * ERP 서버 통신 + 세션 쿠키 영속(SharedPreferences).
+ * ERP 서버 통신 + Android Keystore로 암호화한 세션 쿠키 영속.
  * BASE_URL 만 환경에 맞게 바꾸면 됩니다.
  */
 object Net {
     const val BASE_URL = "https://taesung-urban.duckdns.org"
     private const val PREF = "taesung_widget"
-    private const val KEY_COOKIES = "cookies"
+    private const val KEY_COOKIES_LEGACY = "cookies"
+    private const val KEY_COOKIES_ENCRYPTED = "cookies_encrypted"
+    private const val COOKIE_KEY_ALIAS = "taesung_widget_cookie_key"
     private const val KEY_EMP = "employee_id"
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE)
 
+    private fun cookieKey(): SecretKey {
+        val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        (store.getKey(COOKIE_KEY_ALIAS, null) as? SecretKey)?.let { return it }
+        return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore").run {
+            init(
+                KeyGenParameterSpec.Builder(
+                    COOKIE_KEY_ALIAS,
+                    KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
+                )
+                    .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                    .build()
+            )
+            generateKey()
+        }
+    }
+
+    private fun saveCookieStrings(ctx: Context, values: Set<String>) {
+        if (values.isEmpty()) {
+            prefs(ctx).edit().remove(KEY_COOKIES_ENCRYPTED).remove(KEY_COOKIES_LEGACY).apply()
+            return
+        }
+        try {
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(Cipher.ENCRYPT_MODE, cookieKey())
+            val clear = JSONArray(values.toList()).toString().toByteArray(Charsets.UTF_8)
+            val encrypted = cipher.doFinal(clear)
+            val packed = listOf(cipher.iv, encrypted)
+                .joinToString(":") { Base64.encodeToString(it, Base64.NO_WRAP) }
+            prefs(ctx).edit()
+                .putString(KEY_COOKIES_ENCRYPTED, packed)
+                .remove(KEY_COOKIES_LEGACY)
+                .apply()
+        } catch (_: Exception) {
+            prefs(ctx).edit().remove(KEY_COOKIES_ENCRYPTED).remove(KEY_COOKIES_LEGACY).apply()
+        }
+    }
+
+    private fun loadCookieStrings(ctx: Context): Set<String> {
+        val encrypted = prefs(ctx).getString(KEY_COOKIES_ENCRYPTED, null)
+        if (!encrypted.isNullOrBlank()) {
+            try {
+                val parts = encrypted.split(":", limit = 2)
+                require(parts.size == 2)
+                val iv = Base64.decode(parts[0], Base64.NO_WRAP)
+                val body = Base64.decode(parts[1], Base64.NO_WRAP)
+                val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+                cipher.init(Cipher.DECRYPT_MODE, cookieKey(), GCMParameterSpec(128, iv))
+                val arr = JSONArray(String(cipher.doFinal(body), Charsets.UTF_8))
+                return buildSet {
+                    for (i in 0 until arr.length()) add(arr.getString(i))
+                }
+            } catch (_: Exception) {
+                prefs(ctx).edit().remove(KEY_COOKIES_ENCRYPTED).apply()
+                return emptySet()
+            }
+        }
+
+        // v2.6 이하 평문 저장분은 첫 로드 때 Keystore 암호문으로 이전한다.
+        val legacy = prefs(ctx).getStringSet(KEY_COOKIES_LEGACY, emptySet()).orEmpty().toSet()
+        if (legacy.isNotEmpty()) saveCookieStrings(ctx, legacy)
+        return legacy
+    }
+
     /**
-     * SharedPreferences 에 쿠키를 저장/복원하는 CookieJar.
+     * Keystore 암호문에서 쿠키를 저장/복원하는 CookieJar.
      * ⚠️ 이름(name) 기준으로 '대체' 저장한다. 단순 add 로 누적하면 서버가 매 응답마다
      *    재발급하는 세션 쿠키(taesung_urban_session)가 옛 값과 함께 여러 개 쌓여,
      *    다음 요청에 옛(만료) 값이 섞여 전송돼 401(로그인 풀림)이 발생한다.
@@ -39,7 +114,7 @@ object Net {
             val now = System.currentTimeMillis()
             // 기존 저장분을 name 기준 맵으로 복원
             val byName = HashMap<String, String>()
-            prefs(ctx).getStringSet(KEY_COOKIES, emptySet())!!.forEach { s ->
+            loadCookieStrings(ctx).forEach { s ->
                 Cookie.parse(url, s)?.let { byName[it.name] = s }
             }
             // 새 쿠키 적용: 만료면 제거, 아니면 최신 값으로 대체
@@ -47,19 +122,28 @@ object Net {
                 if (c.expiresAt <= now) byName.remove(c.name)
                 else byName[c.name] = c.toString()
             }
-            prefs(ctx).edit().putStringSet(KEY_COOKIES, byName.values.toSet()).apply()
+            saveCookieStrings(ctx, byName.values.toSet())
         }
         override fun loadForRequest(url: HttpUrl): List<Cookie> {
             val now = System.currentTimeMillis()
-            return prefs(ctx).getStringSet(KEY_COOKIES, emptySet())!!
+            val stored = loadCookieStrings(ctx)
+            val valid = stored
                 .mapNotNull { Cookie.parse(url, it) }
                 .filter { it.matches(url) && it.expiresAt > now }
+            val current = valid.map { it.toString() }.toSet()
+            if (current != stored) saveCookieStrings(ctx, current)
+            return valid
         }
     }
 
     private fun client(ctx: Context): OkHttpClient =
         OkHttpClient.Builder()
             .cookieJar(PersistentCookieJar(ctx))
+            .addInterceptor { chain ->
+                chain.proceed(chain.request()).also { response ->
+                    if (response.code == 401) logout(ctx)
+                }
+            }
             .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
             .readTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
@@ -126,11 +210,30 @@ object Net {
         } catch (e: Exception) { null }
     }
 
-    fun isLoggedIn(ctx: Context): Boolean =
-        prefs(ctx).getStringSet(KEY_COOKIES, emptySet())!!.isNotEmpty()
+    fun isLoggedIn(ctx: Context): Boolean {
+        val url = BASE_URL.toHttpUrl()
+        return loadCookieStrings(ctx)
+            .mapNotNull { Cookie.parse(url, it) }
+            .any { it.name == "taesung_urban_session" && it.expiresAt > System.currentTimeMillis() }
+    }
+
+    fun validateSession(ctx: Context): Boolean {
+        if (!isLoggedIn(ctx)) return false
+        return try {
+            val req = Request.Builder().url("$BASE_URL/api/auth/me").get().build()
+            client(ctx).newCall(req).execute().use { it.isSuccessful }
+        } catch (_: Exception) {
+            false
+        }
+    }
 
     fun logout(ctx: Context) {
-        prefs(ctx).edit().remove(KEY_COOKIES).remove(KEY_EMP).apply()
+        prefs(ctx).edit()
+            .remove(KEY_COOKIES_ENCRYPTED)
+            .remove(KEY_COOKIES_LEGACY)
+            .remove(KEY_EMP)
+            .remove(KEY_MONTH)
+            .apply()
     }
 
     /** 로그인 → 성공 시 세션 쿠키 + employee_id 저장. 성공 여부 반환. */

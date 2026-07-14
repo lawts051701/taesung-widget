@@ -52,8 +52,18 @@ class WidgetConfigActivity : AppCompatActivity() {
         }
 
         if (Net.isLoggedIn(this)) {
-            status.text = "로그인됨 — 다시 로그인하려면 입력 후 버튼을 누르세요."
-            registerPush()  // 이미 로그인 상태면 토큰 재등록
+            status.text = "로그인 상태 확인 중..."
+            Thread {
+                val valid = Net.validateSession(this)
+                runOnUiThread {
+                    status.text = if (valid) {
+                        registerPush()
+                        "로그인됨 — 다시 로그인하려면 입력 후 버튼을 누르세요."
+                    } else {
+                        "세션이 만료됐습니다. 다시 로그인하세요."
+                    }
+                }
+            }.start()
         }
 
         btn.setOnClickListener {
@@ -97,14 +107,12 @@ class WidgetConfigActivity : AppCompatActivity() {
         val group = findViewById<RadioGroup>(R.id.cfg_theme_group)
         val checked = when (ThemePrefs.mode(this)) {
             ThemePrefs.MODE_DARK -> R.id.cfg_theme_dark
-            ThemePrefs.MODE_SYSTEM -> R.id.cfg_theme_system
             else -> R.id.cfg_theme_light
         }
         group.check(checked)
         group.setOnCheckedChangeListener { _, id ->
             val mode = when (id) {
                 R.id.cfg_theme_dark -> ThemePrefs.MODE_DARK
-                R.id.cfg_theme_system -> ThemePrefs.MODE_SYSTEM
                 else -> ThemePrefs.MODE_LIGHT
             }
             if (mode == ThemePrefs.mode(this)) return@setOnCheckedChangeListener
@@ -139,7 +147,6 @@ class WidgetConfigActivity : AppCompatActivity() {
         listOf(
             R.id.cfg_theme_light,
             R.id.cfg_theme_dark,
-            R.id.cfg_theme_system,
         ).forEach { id ->
             findViewById<TextView>(id).setTextColor(text)
         }
