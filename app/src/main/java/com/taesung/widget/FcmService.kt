@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import com.google.firebase.messaging.FirebaseMessaging
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 
@@ -33,6 +34,16 @@ class FcmService : FirebaseMessagingService() {
                     mgr.createNotificationChannel(ch)
                 }
             }
+        }
+
+        fun registerCurrentToken(ctx: Context) {
+            ensureChannel(ctx)
+            if (!Net.isLoggedIn(ctx)) return
+            try {
+                FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
+                    Thread { try { Net.registerFcmToken(ctx.applicationContext, token) } catch (_: Exception) {} }.start()
+                }
+            } catch (_: Exception) { /* 파이어베이스 미초기화 등 — 무시 */ }
         }
     }
 

@@ -20,6 +20,8 @@ class WidgetUpdateWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, p
             return Result.success()
         }
 
+        FcmService.registerCurrentToken(ctx)
+
         val data = try {
             Net.fetchMonthEvents(ctx)  // null = 401(세션 만료)
         } catch (e: Exception) {

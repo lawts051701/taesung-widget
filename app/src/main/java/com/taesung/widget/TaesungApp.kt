@@ -6,5 +6,6 @@ class TaesungApp : Application() {
     override fun onCreate() {
         super.onCreate()
         ThemePrefs.apply(this)
+        FcmService.registerCurrentToken(this)
     }
 }

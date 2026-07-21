@@ -176,8 +176,8 @@ class DaySchedulePopupActivity : AppCompatActivity() {
             orientation = LinearLayout.HORIZONTAL
             setPadding(dp(12), dp(9), dp(12), dp(9))
             background = GradientDrawable().apply {
-                setColor(if (dark) 0xFF1F2937.toInt() else 0xFFF8FAFC.toInt())
-                setStroke(dp(1), if (dark) 0xFF374151.toInt() else 0xFFE5E7EB.toInt())
+                setColor(softEventBg(accent, dark))
+                setStroke(dp(1), softEventBorder(accent, dark))
                 cornerRadius = dp(9).toFloat()
             }
             layoutParams = LinearLayout.LayoutParams(
@@ -304,6 +304,23 @@ class DaySchedulePopupActivity : AppCompatActivity() {
     private fun parseColorOr(hex: String?, def: Int): Int {
         if (hex.isNullOrBlank()) return def
         return try { Color.parseColor(hex.trim()) } catch (_: Exception) { def }
+    }
+
+    private fun softEventBg(color: Int, dark: Boolean): Int =
+        if (dark) blendColor(color, 0xFF111827.toInt(), 0.68f) else blendColor(color, Color.WHITE, 0.88f)
+
+    private fun softEventBorder(color: Int, dark: Boolean): Int =
+        if (dark) blendColor(color, 0xFF374151.toInt(), 0.58f) else blendColor(color, Color.WHITE, 0.62f)
+
+    private fun blendColor(color: Int, target: Int, targetWeight: Float): Int {
+        val w = targetWeight.coerceIn(0f, 1f)
+        val base = 1f - w
+        return Color.argb(
+            (Color.alpha(color) * base + Color.alpha(target) * w).toInt(),
+            (Color.red(color) * base + Color.red(target) * w).toInt(),
+            (Color.green(color) * base + Color.green(target) * w).toInt(),
+            (Color.blue(color) * base + Color.blue(target) * w).toInt(),
+        )
     }
 
     private fun rounded(fill: Int, stroke: Int, radius: Int): GradientDrawable =

@@ -19,7 +19,6 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
-import com.google.firebase.messaging.FirebaseMessaging
 import java.util.concurrent.TimeUnit
 
 /**
@@ -27,6 +26,10 @@ import java.util.concurrent.TimeUnit
  * 로그인 성공 시 30분 주기 갱신 작업을 등록하고 즉시 1회 갱신.
  */
 class WidgetConfigActivity : AppCompatActivity() {
+    companion object {
+        private const val REQ_NOTIFICATIONS = 1001
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         ThemePrefs.apply(this)
         super.onCreate(savedInstanceState)
@@ -47,7 +50,7 @@ class WidgetConfigActivity : AppCompatActivity() {
             != PackageManager.PERMISSION_GRANTED
         ) {
             ActivityCompat.requestPermissions(
-                this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1001
+                this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQ_NOTIFICATIONS
             )
         }
 
@@ -118,7 +121,26 @@ class WidgetConfigActivity : AppCompatActivity() {
             if (mode == ThemePrefs.mode(this)) return@setOnCheckedChangeListener
             ThemePrefs.setMode(this, mode)
             ThemePrefs.apply(this)
+            TodayScheduleWidget.redrawFromCacheOrRefresh(this)
             recreate()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (Net.isLoggedIn(this)) registerPush()
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQ_NOTIFICATIONS &&
+            grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
+        ) {
+            registerPush()
         }
     }
 
@@ -164,12 +186,7 @@ class WidgetConfigActivity : AppCompatActivity() {
 
     /** FCM 토큰을 받아 서버(로그인 세션)에 등록 — 이 사용자에게 알림이 오도록 연결. */
     private fun registerPush() {
-        FcmService.ensureChannel(this)
-        try {
-            FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
-                Thread { try { Net.registerFcmToken(this, token) } catch (_: Exception) {} }.start()
-            }
-        } catch (_: Exception) { /* 파이어베이스 미초기화 등 — 무시 */ }
+        FcmService.registerCurrentToken(this)
     }
 
     private fun scheduleUpdates() {
