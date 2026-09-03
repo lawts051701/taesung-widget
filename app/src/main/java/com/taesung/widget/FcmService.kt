@@ -23,6 +23,9 @@ class FcmService : FirebaseMessagingService() {
     companion object {
         const val CHANNEL_ID = "taesung_erp"
         const val CHANNEL_NAME = "정비사업팀 알림"
+        const val OPEN_NOTIFICATION_ACTION = "com.taesung.widget.OPEN_NOTIFICATION"
+        private const val TOKEN_PREF = "taesung_fcm"
+        private const val TOKEN_KEY = "current_token"
 
         fun ensureChannel(ctx: Context) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -38,16 +41,32 @@ class FcmService : FirebaseMessagingService() {
 
         fun registerCurrentToken(ctx: Context) {
             ensureChannel(ctx)
-            if (!Net.isLoggedIn(ctx)) return
             try {
                 FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
-                    Thread { try { Net.registerFcmToken(ctx.applicationContext, token) } catch (_: Exception) {} }.start()
+                    rememberToken(ctx, token)
+                    if (Net.isLoggedIn(ctx)) {
+                        Thread { try { Net.registerFcmToken(ctx.applicationContext, token) } catch (_: Exception) {} }.start()
+                    }
                 }
             } catch (_: Exception) { /* 파이어베이스 미초기화 등 — 무시 */ }
         }
+
+        fun rememberToken(ctx: Context, token: String) {
+            if (token.isBlank()) return
+            ctx.getSharedPreferences(TOKEN_PREF, Context.MODE_PRIVATE)
+                .edit()
+                .putString(TOKEN_KEY, token)
+                .apply()
+        }
+
+        fun cachedToken(ctx: Context): String? =
+            ctx.getSharedPreferences(TOKEN_PREF, Context.MODE_PRIVATE)
+                .getString(TOKEN_KEY, null)
+                ?.takeIf { it.isNotBlank() }
     }
 
     override fun onNewToken(token: String) {
+        rememberToken(applicationContext, token)
         // 로그인돼 있으면 즉시 서버 등록 (위젯 로그인으로 세션이 있을 때)
         Thread { try { Net.registerFcmToken(applicationContext, token) } catch (_: Exception) {} }.start()
     }

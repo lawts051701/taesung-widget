@@ -31,6 +31,8 @@ class AppLauncherActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         FcmService.ensureChannel(this)
 
+        if (openNotificationPopup()) return
+
         if (
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
@@ -56,15 +58,29 @@ class AppLauncherActivity : AppCompatActivity() {
     }
 
     private fun prepareLaunch() {
-        Handler(Looper.getMainLooper()).postDelayed({ launchTwa(null) }, 2500)
+        val cachedToken = FcmService.cachedToken(this)
+        Handler(Looper.getMainLooper()).postDelayed({ launchTwa(cachedToken) }, 4000)
         try {
             FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
                 val token = if (task.isSuccessful) task.result?.takeIf { it.isNotBlank() } else null
-                launchTwa(token)
+                if (token != null) FcmService.rememberToken(this, token)
+                launchTwa(token ?: cachedToken)
             }
         } catch (_: Exception) {
-            launchTwa(null)
+            launchTwa(cachedToken)
         }
+    }
+
+    private fun openNotificationPopup(): Boolean {
+        if (intent?.action != FcmService.OPEN_NOTIFICATION_ACTION) return false
+        startActivity(Intent(this, NotificationPopupActivity::class.java).apply {
+            putExtra("title", intent.getStringExtra("title") ?: "정비사업팀")
+            putExtra("body", intent.getStringExtra("body") ?: "")
+            putExtra("url", intent.getStringExtra("url") ?: "/")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        })
+        finish()
+        return true
     }
 
     @Synchronized

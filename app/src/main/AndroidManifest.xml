@@ -46,6 +46,11 @@
                     android:scheme="https"
                     android:host="taesung-urban.duckdns.org" />
             </intent-filter>
+
+            <intent-filter>
+                <action android:name="com.taesung.widget.OPEN_NOTIFICATION" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
 
         <!-- ERP 웹을 전체화면으로 표시하는 실제 TWA 런처 -->
