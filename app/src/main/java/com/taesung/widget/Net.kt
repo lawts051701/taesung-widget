@@ -523,7 +523,17 @@ object Net {
             val lines = ArrayList<String>()
             for (i in 0 until arr.length()) {
                 val ev = arr.getJSONObject(i)
-                if (ev.optInt("assigned_to_id", -1) != empId) continue
+                val coAssignees = ev.optJSONArray("co_assigned_ids")
+                var isAssigned = ev.optInt("assigned_to_id", -1) == empId
+                if (!isAssigned && coAssignees != null) {
+                    for (index in 0 until coAssignees.length()) {
+                        if (coAssignees.optInt(index, -1) == empId) {
+                            isAssigned = true
+                            break
+                        }
+                    }
+                }
+                if (!isAssigned) continue
                 val starts = ev.optString("starts_at")
                 val hhmm = try {
                     val d = parse.parse(starts.substring(0, 19))
