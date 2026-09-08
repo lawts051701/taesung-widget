@@ -15,6 +15,13 @@ data class EvtChip(
     val time: String? = null,
     val attendees: String? = null,
     val location: String? = null,
+    val endTime: String? = null,
+    val kind: String? = null,
+    val category: String? = null,
+    val team: String? = null,
+    val organization: String? = null,
+    val litigationCaseNumber: String? = null,
+    val description: String? = null,
 )
 
 /** 월 일정 데이터. */

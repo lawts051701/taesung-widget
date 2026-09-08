@@ -166,6 +166,13 @@ object Net {
                             .put("t", it.time ?: "")
                             .put("a", it.attendees ?: "")
                             .put("l", it.location ?: "")
+                            .put("e", it.endTime ?: "")
+                            .put("k", it.kind ?: "")
+                            .put("g", it.category ?: "")
+                            .put("m", it.team ?: "")
+                            .put("o", it.organization ?: "")
+                            .put("n", it.litigationCaseNumber ?: "")
+                            .put("d", it.description ?: "")
                     )
                 }
                 days.put(day.toString(), arr)
@@ -192,6 +199,13 @@ object Net {
                     val time = cj.optString("t", "")
                     val attendees = cj.optString("a", "")
                     val location = cj.optString("l", "")
+                    val endTime = cj.optString("e", "")
+                    val kind = cj.optString("k", "")
+                    val category = cj.optString("g", "")
+                    val team = cj.optString("m", "")
+                    val organization = cj.optString("o", "")
+                    val litigationCaseNumber = cj.optString("n", "")
+                    val description = cj.optString("d", "")
                     list.add(
                         EvtChip(
                             if (cj.isNull("id")) null else cj.optInt("id"),
@@ -200,6 +214,13 @@ object Net {
                             time.ifEmpty { null },
                             attendees.ifEmpty { null },
                             location.ifEmpty { null },
+                            endTime.ifEmpty { null },
+                            kind.ifEmpty { null },
+                            category.ifEmpty { null },
+                            team.ifEmpty { null },
+                            organization.ifEmpty { null },
+                            litigationCaseNumber.ifEmpty { null },
+                            description.ifEmpty { null },
                         )
                     )
                 }
@@ -314,6 +335,13 @@ object Net {
                 val time: String?,
                 val attendees: String?,
                 val location: String?,
+                val endTime: String?,
+                val kind: String?,
+                val category: String?,
+                val team: String?,
+                val organization: String?,
+                val litigationCaseNumber: String?,
+                val description: String?,
             )
             // day -> 일정 원본(정렬키, 색상, 제목, 시간)
             val map = HashMap<Int, MutableList<RawEvent>>()
@@ -333,9 +361,51 @@ object Net {
                     val time = if (ev.optBoolean("all_day", false)) "종일" else timeFmt.format(d)
                     val attendees = eventAttendees(ev, parsed)
                     val location = cleanOpt(ev, "location")
+                    val endTime = if (ev.optBoolean("all_day", false)) {
+                        null
+                    } else {
+                        cleanOpt(ev, "ends_at")?.let { rawEnd ->
+                            try {
+                                val endDate = parseUtc.parse(rawEnd.substring(0, 19)) ?: return@let null
+                                val endCal = Calendar.getInstance(kst).apply { time = endDate }
+                                if (endCal.get(Calendar.YEAR) == c.get(Calendar.YEAR) &&
+                                    endCal.get(Calendar.DAY_OF_YEAR) == c.get(Calendar.DAY_OF_YEAR)
+                                ) {
+                                    timeFmt.format(endDate)
+                                } else {
+                                    SimpleDateFormat("MM.dd HH:mm", Locale.KOREA).apply { timeZone = kst }.format(endDate)
+                                }
+                            } catch (_: Exception) {
+                                null
+                            }
+                        }
+                    }
+                    val kind = cleanOpt(ev, "kind")
+                    val category = cleanOpt(ev, "category_name")
+                    val team = cleanOpt(ev, "team")
+                    val organization = cleanOpt(ev, "organization_name")
+                    val litigationCaseNumber = cleanOpt(ev, "litigation_case_number")
+                    val description = cleanOpt(ev, "description")
                     val eventId = if (ev.has("id") && !ev.isNull("id")) ev.optInt("id") else null
                     map.getOrPut(day) { mutableListOf() }
-                        .add(RawEvent(eventId, d.time, color, title, time, attendees, location))
+                        .add(
+                            RawEvent(
+                                eventId,
+                                d.time,
+                                color,
+                                title,
+                                time,
+                                attendees,
+                                location,
+                                endTime,
+                                kind,
+                                category,
+                                team,
+                                organization,
+                                litigationCaseNumber,
+                                description,
+                            )
+                        )
                 } catch (_: Exception) { /* 형식 불량 스킵 */ }
             }
             val byDay = map.mapValues { (_, list) ->
@@ -347,6 +417,13 @@ object Net {
                         it.time,
                         it.attendees,
                         it.location,
+                        it.endTime,
+                        it.kind,
+                        it.category,
+                        it.team,
+                        it.organization,
+                        it.litigationCaseNumber,
+                        it.description,
                     )
                 }
             }

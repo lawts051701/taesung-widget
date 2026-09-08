@@ -13,7 +13,7 @@ android {
         applicationId = "org.duckdns.taesung_urban.twa"
         minSdk = 24
         targetSdk = 36
-        versionCode = 110
+        versionCode = 111
         versionName = "3.0"
     }
 

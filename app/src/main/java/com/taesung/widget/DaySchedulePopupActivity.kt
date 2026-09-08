@@ -154,6 +154,13 @@ class DaySchedulePopupActivity : AppCompatActivity() {
                             color = o.optString("color").ifBlank { null },
                             attendees = o.optString("attendees").ifBlank { null },
                             location = o.optString("location").ifBlank { null },
+                            endTime = o.optString("end_time").ifBlank { null },
+                            kind = o.optString("kind").ifBlank { null },
+                            category = o.optString("category").ifBlank { null },
+                            team = o.optString("team").ifBlank { null },
+                            organization = o.optString("organization").ifBlank { null },
+                            litigationCaseNumber = o.optString("litigation_case_number").ifBlank { null },
+                            description = o.optString("description").ifBlank { null },
                         )
                     )
                 }
@@ -172,9 +179,8 @@ class DaySchedulePopupActivity : AppCompatActivity() {
             if (!ev.location.isNullOrBlank()) add("장소: ${ev.location}")
         }.joinToString(" · ")
 
-        return LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(12), dp(9), dp(12), dp(9))
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
                 setColor(softEventBg(accent, dark))
                 setStroke(dp(1), softEventBorder(accent, dark))
@@ -184,6 +190,25 @@ class DaySchedulePopupActivity : AppCompatActivity() {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
             ).apply { bottomMargin = dp(8) }
+        }
+
+        val detailView = eventDetails(ev, dark)
+        val detailAction = TextView(this).apply {
+            text = "상세"
+            textSize = 13f
+            gravity = android.view.Gravity.CENTER
+            minWidth = dp(48)
+            minHeight = dp(48)
+            setTextColor(if (dark) 0xFFA5B4FC.toInt() else 0xFF4F46E5.toInt())
+        }
+
+        val summary = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding(dp(12), dp(7), dp(4), dp(7))
+            isClickable = true
+            isFocusable = true
+            contentDescription = "${ev.text} 일정 상세 보기"
 
             addView(
                 TextView(this@DaySchedulePopupActivity).apply {
@@ -227,14 +252,109 @@ class DaySchedulePopupActivity : AppCompatActivity() {
                 }
             )
 
+            addView(detailAction)
+
             if (ev.id != null) {
                 addView(
                     TextView(this@DaySchedulePopupActivity).apply {
                         text = "삭제"
                         textSize = 13f
+                        gravity = android.view.Gravity.CENTER
+                        minWidth = dp(48)
+                        minHeight = dp(48)
                         setTextColor(if (dark) 0xFFFCA5A5.toInt() else 0xFFDC2626.toInt())
-                        setPadding(dp(10), dp(2), 0, 0)
+                        contentDescription = "${ev.text} 일정 삭제"
                         setOnClickListener { confirmDelete(ev) }
+                    }
+                )
+            }
+        }
+
+        val toggleDetails = View.OnClickListener {
+            val expanding = detailView.visibility != View.VISIBLE
+            detailView.visibility = if (expanding) View.VISIBLE else View.GONE
+            detailAction.text = if (expanding) "접기" else "상세"
+            summary.contentDescription = "${ev.text} 일정 상세 ${if (expanding) "접기" else "보기"}"
+        }
+        summary.setOnClickListener(toggleDetails)
+        detailAction.setOnClickListener(toggleDetails)
+
+        card.addView(summary)
+        card.addView(detailView)
+        return card
+    }
+
+    private fun eventDetails(ev: PopupEvent, dark: Boolean): View {
+        val divider = if (dark) 0xFF4B5563.toInt() else 0xFFD8DEE9.toInt()
+        val labelColor = if (dark) 0xFF9CA3AF.toInt() else 0xFF64748B.toInt()
+        val valueColor = if (dark) 0xFFF3F4F6.toInt() else 0xFF1F2937.toInt()
+        val kindLabel = listOfNotNull(ev.category, ev.kind)
+            .filter { it.isNotBlank() }
+            .distinct()
+            .joinToString(" · ")
+        val timeLabel = buildString {
+            append(dateLabel(selectedDate))
+            if (!ev.time.isNullOrBlank()) {
+                append(" · ")
+                append(ev.time)
+                if (!ev.endTime.isNullOrBlank()) {
+                    append(" ~ ")
+                    append(ev.endTime)
+                }
+            }
+        }
+        val fields = buildList {
+            add("일시" to timeLabel)
+            if (kindLabel.isNotBlank()) add("구분" to kindLabel)
+            if (!ev.team.isNullOrBlank()) add("팀" to ev.team)
+            if (!ev.attendees.isNullOrBlank()) add("담당자" to ev.attendees)
+            if (!ev.location.isNullOrBlank()) add("장소" to ev.location)
+            if (!ev.organization.isNullOrBlank()) add("연계 현장" to ev.organization)
+            if (!ev.litigationCaseNumber.isNullOrBlank()) add("사건" to ev.litigationCaseNumber)
+            if (!ev.description.isNullOrBlank()) add("설명" to ev.description)
+        }
+
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+            setPadding(dp(12), 0, dp(12), dp(12))
+
+            addView(
+                View(this@DaySchedulePopupActivity).apply {
+                    setBackgroundColor(divider)
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        dp(1),
+                    ).apply { bottomMargin = dp(8) }
+                }
+            )
+
+            fields.forEach { (label, value) ->
+                addView(
+                    LinearLayout(this@DaySchedulePopupActivity).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        setPadding(0, dp(3), 0, dp(3))
+                        addView(
+                            TextView(this@DaySchedulePopupActivity).apply {
+                                text = label
+                                textSize = 12f
+                                setTextColor(labelColor)
+                                layoutParams = LinearLayout.LayoutParams(dp(64), LinearLayout.LayoutParams.WRAP_CONTENT)
+                            }
+                        )
+                        addView(
+                            TextView(this@DaySchedulePopupActivity).apply {
+                                text = value
+                                textSize = 13f
+                                setTextColor(valueColor)
+                                setTextIsSelectable(true)
+                                layoutParams = LinearLayout.LayoutParams(
+                                    0,
+                                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                                    1f,
+                                )
+                            }
+                        )
                     }
                 )
             }
@@ -339,5 +459,12 @@ class DaySchedulePopupActivity : AppCompatActivity() {
         val color: String?,
         val attendees: String?,
         val location: String?,
+        val endTime: String?,
+        val kind: String?,
+        val category: String?,
+        val team: String?,
+        val organization: String?,
+        val litigationCaseNumber: String?,
+        val description: String?,
     )
 }

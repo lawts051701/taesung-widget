@@ -275,6 +275,13 @@ class TodayScheduleWidget : AppWidgetProvider() {
                         .put("time", it.time ?: "")
                         .put("attendees", it.attendees ?: "")
                         .put("location", it.location ?: "")
+                        .put("end_time", it.endTime ?: "")
+                        .put("kind", it.kind ?: "")
+                        .put("category", it.category ?: "")
+                        .put("team", it.team ?: "")
+                        .put("organization", it.organization ?: "")
+                        .put("litigation_case_number", it.litigationCaseNumber ?: "")
+                        .put("description", it.description ?: "")
                 )
             }
             return arr.toString()
