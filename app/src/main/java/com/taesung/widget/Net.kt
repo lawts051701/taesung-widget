@@ -367,7 +367,7 @@ object Net {
                         cleanOpt(ev, "ends_at")?.let { rawEnd ->
                             try {
                                 val endDate = parseUtc.parse(rawEnd.substring(0, 19)) ?: return@let null
-                                val endCal = Calendar.getInstance(kst).apply { time = endDate }
+                                val endCal = Calendar.getInstance(kst).apply { this.time = endDate }
                                 if (endCal.get(Calendar.YEAR) == c.get(Calendar.YEAR) &&
                                     endCal.get(Calendar.DAY_OF_YEAR) == c.get(Calendar.DAY_OF_YEAR)
                                 ) {
