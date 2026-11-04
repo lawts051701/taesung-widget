@@ -29,21 +29,6 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
-      - name: Generate launcher icons from logo
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq imagemagick
-          OUT=app/src/main/res/mipmap-xxxhdpi
-          mkdir -p "$OUT"
-          # 적응형 아이콘 전경: 로고를 안전영역(약 62%) 안에 비율유지로 배치, 투명 배경
-          convert iconsrc/logo.png -trim +repage -resize 268x268 \
-            -background none -gravity center -extent 432x432 "$OUT/ic_launcher_foreground.png"
-          # 구형 안드로이드(API24~25)용 정사각 아이콘: 흰 배경에 로고 비율유지
-          convert iconsrc/logo.png -trim +repage -resize 340x340 \
-            -background white -gravity center -extent 432x432 "$OUT/ic_launcher.png"
-          cp "$OUT/ic_launcher.png" "$OUT/ic_launcher_round.png"
-          ls -la "$OUT"
-
       - name: Inject google-services.json (from encrypted secret)
         env:
           GS_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
